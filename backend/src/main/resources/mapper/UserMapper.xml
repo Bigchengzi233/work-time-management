@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace 必须和 Java 中的 UserMapper 接口全限定名一致。 -->
+<mapper namespace="com.worktime.mapper.UserMapper">
+
+    <!-- 用户与部门连接查询结果映射。 -->
+    <resultMap id="UserRowResultMap" type="com.worktime.vo.UserRowVO">
+        <id column="user_id" property="userId"/>
+        <result column="user_name" property="userName"/>
+        <result column="phone" property="phone"/>
+        <result column="psw" property="psw"/>
+        <result column="email" property="email"/>
+        <result column="user_role" property="userRole"/>
+        <result column="dept_id" property="deptId"/>
+        <result column="dept_name" property="deptName"/>
+    </resultMap>
+
+    <!-- 用户列表基础查询 SQL。 -->
+    <sql id="UserSelectColumns">
+        SELECT
+            u.user_id,
+            u.user_name,
+            u.phone,
+            u.psw,
+            u.email,
+            u.user_role,
+            u.dept_id,
+            d.dept_name
+        FROM `user` u
+        LEFT JOIN department d ON u.dept_id = d.dept_id
+    </sql>
+
+    <!-- 查询全部用户。 -->
+    <select id="selectAll" resultMap="UserRowResultMap">
+        <include refid="UserSelectColumns"/>
+        ORDER BY u.user_id ASC
+    </select>
+
+    <!-- 根据用户编号查询单个用户。 -->
+    <select id="selectById" resultMap="UserRowResultMap">
+        <include refid="UserSelectColumns"/>
+        WHERE u.user_id = #{userId}
+    </select>
+
+    <!-- 新增时检查手机号是否重复。 -->
+    <select id="countByPhone" resultType="int">
+        SELECT COUNT(1)
+        FROM `user`
+        WHERE phone = #{phone}
+    </select>
+
+    <!-- 修改时检查手机号是否被其他用户占用。 -->
+    <select id="countByPhoneExcludeId" resultType="int">
+        SELECT COUNT(1)
+        FROM `user`
+        WHERE phone = #{phone}
+          AND user_id != #{userId}
+    </select>
+
+    <!-- 检查所属部门是否存在。 -->
+    <select id="countDepartmentById" resultType="int">
+        SELECT COUNT(1)
+        FROM department
+        WHERE dept_id = #{deptId}
+    </select>
+
+    <!-- 新增用户。 -->
+    <insert id="insert" parameterType="com.worktime.entity.User" useGeneratedKeys="true" keyProperty="userId">
+        INSERT INTO `user` (
+            user_name,
+            phone,
+            psw,
+            email,
+            user_role,
+            dept_id
+        ) VALUES (
+            #{userName},
+            #{phone},
+            #{psw},
+            #{email},
+            #{userRole},
+            #{deptId}
+        )
+    </insert>
+
+    <!-- 根据用户编号修改用户。 -->
+    <update id="updateById" parameterType="com.worktime.entity.User">
+        UPDATE `user`
+        SET
+            user_name = #{userName},
+            phone = #{phone},
+            psw = #{psw},
+            email = #{email},
+            user_role = #{userRole},
+            dept_id = #{deptId}
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 统计用户是否存在工时申报单。 -->
+    <select id="countWorkTimesByUserId" resultType="int">
+        SELECT COUNT(1)
+        FROM work_time_apply
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 统计用户是否作为操作人存在工时日志。 -->
+    <select id="countLogsByOperatorId" resultType="int">
+        SELECT COUNT(1)
+        FROM work_time_log
+        WHERE operator_id = #{userId}
+    </select>
+
+    <!-- 删除用户项目授权记录。 -->
+    <delete id="deleteUserProjectsByUserId">
+        DELETE FROM user_project
+        WHERE user_id = #{userId}
+    </delete>
+
+    <!-- 根据用户编号删除用户。 -->
+    <delete id="deleteById">
+        DELETE FROM `user`
+        WHERE user_id = #{userId}
+    </delete>
+</mapper>
