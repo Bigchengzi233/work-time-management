@@ -31,4 +31,55 @@
         FROM department
         WHERE dept_id = #{deptId}
     </select>
+
+    <!-- 根据部门名称统计数量，用于新增时检查部门名称是否重复。 -->
+    <select id="countByDeptName" resultType="int">
+        SELECT COUNT(1)
+        FROM department
+        WHERE dept_name = #{deptName}
+    </select>
+
+    <!-- 修改部门时检查名称是否被其他部门占用。 -->
+    <select id="countByDeptNameExcludeId" resultType="int">
+        SELECT COUNT(1)
+        FROM department
+        WHERE dept_name = #{deptName}
+          AND dept_id != #{deptId}
+    </select>
+
+    <!-- 新增部门，useGeneratedKeys 会把数据库自增主键回填到 Department.deptId。 -->
+    <insert id="insert" parameterType="com.worktime.entity.Department" useGeneratedKeys="true" keyProperty="deptId">
+        INSERT INTO department (
+            dept_name
+        ) VALUES (
+            #{deptName}
+        )
+    </insert>
+
+    <!-- 根据部门编号修改部门名称。 -->
+    <update id="updateById" parameterType="com.worktime.entity.Department">
+        UPDATE department
+        SET dept_name = #{deptName}
+        WHERE dept_id = #{deptId}
+    </update>
+
+    <!-- 统计某部门下是否还有用户。 -->
+    <select id="countUsersByDeptId" resultType="int">
+        SELECT COUNT(1)
+        FROM `user`
+        WHERE dept_id = #{deptId}
+    </select>
+
+    <!-- 统计某部门下是否还有项目。 -->
+    <select id="countProjectsByDeptId" resultType="int">
+        SELECT COUNT(1)
+        FROM project
+        WHERE dept_id = #{deptId}
+    </select>
+
+    <!-- 根据部门编号删除部门。 -->
+    <delete id="deleteById">
+        DELETE FROM department
+        WHERE dept_id = #{deptId}
+    </delete>
 </mapper>

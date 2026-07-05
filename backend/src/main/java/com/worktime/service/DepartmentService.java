@@ -1,5 +1,7 @@
 package com.worktime.service;
 
+import com.worktime.dto.DepartmentCreateDTO;
+import com.worktime.dto.DepartmentUpdateDTO;
 import com.worktime.vo.DepartmentVO;
 
 import java.util.List;
@@ -12,4 +14,13 @@ public interface DepartmentService {
 
     // 根据部门编号查询单个部门。
     DepartmentVO getDepartmentById(Integer deptId);
+
+    // 新增部门。
+    DepartmentVO createDepartment(DepartmentCreateDTO createDTO);
+
+    // 修改部门。
+    DepartmentVO updateDepartment(Integer deptId, DepartmentUpdateDTO updateDTO);
+
+    // 删除部门。
+    void deleteDepartment(Integer deptId);
 }
