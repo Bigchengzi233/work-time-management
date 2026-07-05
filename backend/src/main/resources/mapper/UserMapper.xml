@@ -105,6 +105,15 @@
         WHERE user_id = #{userId}
     </update>
 
+    <!-- 根据用户编号修改个人资料，只允许改姓名和邮箱。 -->
+    <update id="updateProfileById">
+        UPDATE `user`
+        SET
+            user_name = #{userName},
+            email = #{email}
+        WHERE user_id = #{userId}
+    </update>
+
     <!-- 根据用户编号更新密码。 -->
     <update id="updatePasswordById">
         UPDATE `user`

@@ -33,6 +33,9 @@ public interface UserMapper {
     // 根据用户编号修改用户。
     int updateById(User user);
 
+    // 根据用户编号修改个人资料。
+    int updateProfileById(@Param("userId") Integer userId, @Param("userName") String userName, @Param("email") String email);
+
     // 根据用户编号更新密码。
     int updatePasswordById(@Param("userId") Integer userId, @Param("psw") String psw);
 
