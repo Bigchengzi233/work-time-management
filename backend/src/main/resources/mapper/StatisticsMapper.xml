@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace 必须和 Java 中的 StatisticsMapper 接口全限定名一致。 -->
+<mapper namespace="com.worktime.mapper.StatisticsMapper">
+
+    <!-- 工时统计明细查询结果映射。 -->
+    <resultMap id="WorkTimeStatisticsDetailResultMap" type="com.worktime.vo.WorkTimeStatisticsDetailVO">
+        <id column="work_id" property="workId"/>
+        <result column="user_id" property="userId"/>
+        <result column="user_name" property="userName"/>
+        <result column="dept_id" property="deptId"/>
+        <result column="dept_name" property="deptName"/>
+        <result column="project_id" property="projectId"/>
+        <result column="project_name" property="projectName"/>
+        <result column="work_date" property="workDate"/>
+        <result column="work_hours" property="workHours"/>
+        <result column="work_desc" property="workDesc"/>
+    </resultMap>
+
+    <!-- 统计明细基础查询 SQL：只统计审批通过且未删除的工时。 -->
+    <sql id="StatisticsDetailColumns">
+        SELECT
+            w.work_id,
+            w.user_id,
+            u.user_name,
+            u.dept_id,
+            d.dept_name,
+            w.project_id,
+            p.project_name,
+            w.work_date,
+            w.work_hours,
+            w.work_desc
+        FROM work_time_apply w
+        INNER JOIN `user` u ON w.user_id = u.user_id
+        INNER JOIN department d ON u.dept_id = d.dept_id
+        INNER JOIN project p ON w.project_id = p.project_id
+    </sql>
+
+    <!-- 检查用户是否存在。 -->
+    <select id="countUserById" resultType="int">
+        SELECT COUNT(1)
+        FROM `user`
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 检查用户是否是部门经理。 -->
+    <select id="countManagerById" resultType="int">
+        SELECT COUNT(1)
+        FROM `user`
+        WHERE user_id = #{managerId}
+          AND user_role = '1'
+    </select>
+
+    <!-- 检查用户是否是管理员。 -->
+    <select id="countAdminById" resultType="int">
+        SELECT COUNT(1)
+        FROM `user`
+        WHERE user_id = #{adminId}
+          AND user_role = '0'
+    </select>
+
+    <!-- 查询用户姓名。 -->
+    <select id="selectUserNameById" resultType="string">
+        SELECT user_name
+        FROM `user`
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 查询部门经理所在部门名称。 -->
+    <select id="selectManagerDepartmentName" resultType="string">
+        SELECT d.dept_name
+        FROM `user` u
+        INNER JOIN department d ON u.dept_id = d.dept_id
+        WHERE u.user_id = #{managerId}
+    </select>
+
+    <!-- 查询个人审批通过工时明细。 -->
+    <select id="selectPersonalDetails" resultMap="WorkTimeStatisticsDetailResultMap">
+        <include refid="StatisticsDetailColumns"/>
+        WHERE w.user_id = #{userId}
+          AND w.status = 2
+          AND w.is_deleted = 0
+          AND w.work_date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY w.work_date ASC, w.work_id ASC
+    </select>
+
+    <!-- 查询部门审批通过工时明细：部门经理只能看自己部门。 -->
+    <select id="selectDepartmentDetails" resultMap="WorkTimeStatisticsDetailResultMap">
+        <include refid="StatisticsDetailColumns"/>
+        INNER JOIN `user` manager_user ON manager_user.user_id = #{managerId}
+        WHERE manager_user.user_role = '1'
+          AND manager_user.dept_id = u.dept_id
+          AND w.status = 2
+          AND w.is_deleted = 0
+          AND w.work_date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY w.work_date ASC, w.work_id ASC
+    </select>
+
+    <!-- 查询公司审批通过工时明细：管理员可以看全部部门。 -->
+    <select id="selectCompanyDetails" resultMap="WorkTimeStatisticsDetailResultMap">
+        <include refid="StatisticsDetailColumns"/>
+        WHERE w.status = 2
+          AND w.is_deleted = 0
+          AND w.work_date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY d.dept_id ASC, u.user_id ASC, w.work_date ASC, w.work_id ASC
+    </select>
+</mapper>
