@@ -1,16 +1,19 @@
 <template>
   <header class="topbar">
-    <div>
+    <div class="topbar-title">
+      <span class="topbar-kicker">员工工时管理</span>
       <h1 class="page-title">{{ pageTitle }}</h1>
-      <p class="page-subtitle">当前登录：{{ authStore.userName || '未命名用户' }}</p>
     </div>
 
     <div class="user-panel">
+      <div class="user-avatar">{{ userInitial }}</div>
       <div class="user-meta">
-        <span class="user-name">{{ authStore.user?.userName }}</span>
+        <span class="user-name">{{ authStore.user?.userName || '未命名用户' }}</span>
         <span class="user-role">{{ getRoleName(authStore.userRole) }}</span>
       </div>
-      <el-button :icon="SwitchButton" @click="handleLogout">退出登录</el-button>
+      <el-button class="utility-button" :icon="SwitchButton" @click="handleLogout">
+        退出
+      </el-button>
     </div>
   </header>
 </template>
@@ -29,6 +32,9 @@ const authStore = useAuthStore()
 
 // 顶部标题直接取当前路由的 meta.title。
 const pageTitle = computed(() => route.meta.title || '员工工时管理系统')
+
+// 头像文字取用户姓名首字，缺省时展示“工”。
+const userInitial = computed(() => authStore.user?.userName?.slice(0, 1) || '工')
 
 function handleLogout() {
   authStore.logout()

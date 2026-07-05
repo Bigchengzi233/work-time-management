@@ -2,15 +2,17 @@
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-mark">工</div>
-      <div>
+      <div class="brand-text">
         <div class="brand-title">员工工时管理系统</div>
-        <div class="brand-subtitle">Work Time</div>
+        <div class="brand-subtitle">Work Time Console</div>
       </div>
     </div>
 
+    <div class="nav-section-title">工作台</div>
+
     <el-menu
       class="sidebar-menu"
-      :default-active="route.path"
+      :default-active="activePath"
       router
       background-color="transparent"
       text-color="#31302e"
@@ -23,31 +25,34 @@
         <span>{{ item.title }}</span>
       </el-menu-item>
     </el-menu>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-row">
+        <span>职位：</span>
+        <strong>{{ getRoleName(authStore.userRole) }}</strong>
+      </div>
+      <div class="sidebar-footer-row">
+        <span>部门：</span>
+        <strong>{{ authStore.user?.deptName || '暂无部门' }}</strong>
+      </div>
+    </div>
   </aside>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  Clock,
-  Collection,
-  DataAnalysis,
-  Files,
-  House,
-  User,
-  UserFilled,
-} from '@element-plus/icons-vue'
+import { Clock, DataAnalysis, Files, House, User, UserFilled } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
-import { ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
+import { getRoleName, ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
 
 const route = useRoute()
 const authStore = useAuthStore()
 
-// 左侧菜单配置：后续真实业务页面完成后，这里只需要把占位页换成真实页面。
+// 左侧导航配置：只控制入口展示，真正的权限校验仍然要由后端完成。
 const menus = [
   {
-    title: '首页仪表盘',
+    title: '首页工作台',
     path: '/',
     icon: House,
   },
@@ -81,6 +86,9 @@ const menus = [
     icon: User,
   },
 ]
+
+// 首页路径特殊处理：当前地址是 / 时，高亮首页菜单。
+const activePath = computed(() => route.path || '/')
 
 // 根据当前用户角色过滤菜单，避免不同角色看到无权限入口。
 const visibleMenus = computed(() =>
