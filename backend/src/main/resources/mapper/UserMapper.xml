@@ -45,6 +45,12 @@
         WHERE u.user_id = #{userId}
     </select>
 
+    <!-- 根据手机号查询单个用户，用于登录认证。 -->
+    <select id="selectByPhone" resultMap="UserRowResultMap">
+        <include refid="UserSelectColumns"/>
+        WHERE u.phone = #{phone}
+    </select>
+
     <!-- 新增时检查手机号是否重复。 -->
     <select id="countByPhone" resultType="int">
         SELECT COUNT(1)
@@ -96,6 +102,13 @@
             email = #{email},
             user_role = #{userRole},
             dept_id = #{deptId}
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 根据用户编号更新密码。 -->
+    <update id="updatePasswordById">
+        UPDATE `user`
+        SET psw = #{psw}
         WHERE user_id = #{userId}
     </update>
 

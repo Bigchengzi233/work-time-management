@@ -15,6 +15,9 @@ public interface UserMapper {
     // 根据用户编号查询用户，并带出部门名称。
     UserRowVO selectById(Integer userId);
 
+    // 根据手机号查询用户，并带出部门名称。
+    UserRowVO selectByPhone(String phone);
+
     // 根据手机号统计用户数量，用于新增时检查手机号唯一。
     int countByPhone(String phone);
 
@@ -29,6 +32,9 @@ public interface UserMapper {
 
     // 根据用户编号修改用户。
     int updateById(User user);
+
+    // 根据用户编号更新密码。
+    int updatePasswordById(@Param("userId") Integer userId, @Param("psw") String psw);
 
     // 统计用户是否存在工时申报单。
     int countWorkTimesByUserId(Integer userId);
