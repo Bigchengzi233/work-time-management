@@ -1,0 +1,29 @@
+# 后端服务配置文件。
+# yml 比 properties 更适合写层级配置，后续数据库、MyBatis、日志都会放在这里。
+
+spring:
+  application:
+    # 应用名称，启动日志和后续服务识别会用到。
+    name: work-time-management-backend
+  datasource:
+    # 数据库连接地址，连接本机 MySQL 中的 work_time_management 数据库。
+    url: jdbc:mysql://localhost:3306/work_time_management?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    # 数据库用户名，默认用 root；后续也可以通过环境变量 DB_USERNAME 覆盖。
+    username: ${DB_USERNAME:root}
+    # 数据库密码不能写死在代码里；这里从环境变量 DB_PASSWORD 读取。
+    password: ${DB_PASSWORD:}
+    # MySQL 8 使用的 JDBC 驱动类。
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  # MyBatis 的 XML SQL 文件位置，后续 mapper/*.xml 都放在这里。
+  mapper-locations: classpath:mapper/*.xml
+  # 实体类别名包，后续 XML 里可以少写完整包名。
+  type-aliases-package: com.worktime.entity
+  configuration:
+    # 数据库字段是 user_name，Java 属性是 userName，开启后可以自动做下划线转驼峰。
+    map-underscore-to-camel-case: true
+
+server:
+  # 后端服务端口，浏览器或前端以后通过 http://localhost:18080 访问后端。
+  port: 18080
