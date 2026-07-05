@@ -9,4 +9,7 @@ public interface DepartmentService {
 
     // 查询全部部门，返回给 Controller 使用。
     List<DepartmentVO> listDepartments();
+
+    // 根据部门编号查询单个部门。
+    DepartmentVO getDepartmentById(Integer deptId);
 }

@@ -4,6 +4,7 @@ import com.worktime.common.ApiResponse;
 import com.worktime.service.DepartmentService;
 import com.worktime.vo.DepartmentVO;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,5 +28,12 @@ public class DepartmentController {
     public ApiResponse<List<DepartmentVO>> listDepartments() {
         // 调用业务层查询部门列表，并用统一响应格式返回给前端。
         return ApiResponse.success(departmentService.listDepartments());
+    }
+
+    // 根据部门编号查询单个部门，对应 GET /api/departments/{deptId}。
+    @GetMapping("/{deptId}")
+    public ApiResponse<DepartmentVO> getDepartmentById(@PathVariable Integer deptId) {
+        // 从路径中接收 deptId，然后交给业务层查询部门详情。
+        return ApiResponse.success(departmentService.getDepartmentById(deptId));
     }
 }

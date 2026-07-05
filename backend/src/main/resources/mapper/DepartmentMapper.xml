@@ -22,4 +22,13 @@
         FROM department
         ORDER BY dept_id ASC
     </select>
+
+    <!-- 根据部门编号查询单个部门，#{deptId} 会接收 Java 方法传入的参数。 -->
+    <select id="selectById" resultMap="DepartmentResultMap">
+        SELECT
+            dept_id,
+            dept_name
+        FROM department
+        WHERE dept_id = #{deptId}
+    </select>
 </mapper>

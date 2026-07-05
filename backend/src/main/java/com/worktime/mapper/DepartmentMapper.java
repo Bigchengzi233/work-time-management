@@ -9,4 +9,7 @@ public interface DepartmentMapper {
 
     // 查询全部部门，真正执行的 SQL 写在 DepartmentMapper.xml 中。
     List<Department> selectAll();
+
+    // 根据部门编号查询单个部门。
+    Department selectById(Integer deptId);
 }

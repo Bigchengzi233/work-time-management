@@ -1,6 +1,7 @@
 package com.worktime.service.impl;
 
 import com.worktime.entity.Department;
+import com.worktime.exception.BusinessException;
 import com.worktime.mapper.DepartmentMapper;
 import com.worktime.service.DepartmentService;
 import com.worktime.vo.DepartmentVO;
@@ -30,5 +31,20 @@ public class DepartmentServiceImpl implements DepartmentService {
         return departments.stream()
                 .map(DepartmentVO::fromEntity)
                 .toList();
+    }
+
+    // 根据部门编号查询单个部门；如果不存在，返回友好的业务错误。
+    @Override
+    public DepartmentVO getDepartmentById(Integer deptId) {
+        // 根据主键查询 department 表。
+        Department department = departmentMapper.selectById(deptId);
+
+        // 如果数据库没有查到部门，抛出业务异常，由全局异常处理器统一返回 JSON。
+        if (department == null) {
+            throw new BusinessException(404, "部门不存在");
+        }
+
+        // 查到数据后，把数据库实体转换成前端返回对象。
+        return DepartmentVO.fromEntity(department);
     }
 }
