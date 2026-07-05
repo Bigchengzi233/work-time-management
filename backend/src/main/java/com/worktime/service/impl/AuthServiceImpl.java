@@ -1,15 +1,15 @@
 package com.worktime.service.impl;
 
 import com.worktime.dto.LoginDTO;
+import com.worktime.common.TokenUtil;
 import com.worktime.exception.BusinessException;
 import com.worktime.mapper.UserMapper;
 import com.worktime.service.AuthService;
 import com.worktime.vo.LoginVO;
 import com.worktime.vo.UserRowVO;
+import com.worktime.vo.UserVO;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 // 登录业务实现类：处理手机号密码校验和登录返回数据组装。
 @Service
@@ -21,9 +21,13 @@ public class AuthServiceImpl implements AuthService {
     // 密码加密和校验工具。
     private final PasswordEncoder passwordEncoder;
 
-    public AuthServiceImpl(UserMapper userMapper, PasswordEncoder passwordEncoder) {
+    // token 工具对象。
+    private final TokenUtil tokenUtil;
+
+    public AuthServiceImpl(UserMapper userMapper, PasswordEncoder passwordEncoder, TokenUtil tokenUtil) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
+        this.tokenUtil = tokenUtil;
     }
 
     // 用户登录。
@@ -43,6 +47,16 @@ public class AuthServiceImpl implements AuthService {
 
         upgradePlainPasswordIfNeeded(user, password);
         return buildLoginVO(user);
+    }
+
+    // 查询当前登录用户信息。
+    @Override
+    public UserVO getCurrentUser(Integer userId) {
+        UserRowVO user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+        return UserVO.fromEntity(user, user.getDeptName());
     }
 
     // 校验输入密码和数据库密码是否匹配。
@@ -71,7 +85,7 @@ public class AuthServiceImpl implements AuthService {
     // 组装登录返回对象。
     private LoginVO buildLoginVO(UserRowVO user) {
         LoginVO loginVO = new LoginVO();
-        loginVO.setToken("TEMP-" + UUID.randomUUID());
+        loginVO.setToken(tokenUtil.generateToken(user.getUserId(), user.getUserRole()));
         loginVO.setUserId(user.getUserId());
         loginVO.setUserName(user.getUserName());
         loginVO.setPhone(user.getPhone());

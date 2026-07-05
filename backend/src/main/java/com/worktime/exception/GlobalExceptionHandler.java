@@ -1,6 +1,7 @@
 package com.worktime.exception;
 
 import com.worktime.common.ApiResponse;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -22,6 +23,12 @@ public class GlobalExceptionHandler {
                 ? "参数校验失败"
                 : exception.getBindingResult().getFieldErrors().get(0).getDefaultMessage();
         return ApiResponse.fail(400, message);
+    }
+
+    // 处理请求体缺失或 JSON 格式错误，例如 POST 登录时没有填写 Body。
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ApiResponse<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException exception) {
+        return ApiResponse.fail(400, "请求体不能为空或JSON格式不正确");
     }
 
     // 处理其他未预料到的异常，避免把数据库错误、代码堆栈直接暴露给前端。

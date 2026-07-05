@@ -8,6 +8,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    // 登录拦截器。
+    private final AuthInterceptor authInterceptor;
+
+    public WebConfig(AuthInterceptor authInterceptor) {
+        this.authInterceptor = authInterceptor;
+    }
+
     // 配置跨域访问，解决 Apifox 网页版或后续 Vue 前端调用后端时的 CORS 问题。
     @Override
     public void addCorsMappings(CorsRegistry registry) {
@@ -22,5 +29,16 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowCredentials(false)
                 // 预检请求缓存 1 小时，减少浏览器重复发送 OPTIONS 请求。
                 .maxAge(3600);
+    }
+
+    // 注册登录拦截器，除登录接口和健康检查接口外，其余 /api/** 接口都需要 token。
+    @Override
+    public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
+        registry.addInterceptor(authInterceptor)
+                .addPathPatterns("/api/**")
+                .excludePathPatterns(
+                        "/api/auth/login",
+                        "/api/health/**"
+                );
     }
 }

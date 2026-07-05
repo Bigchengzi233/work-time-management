@@ -3,7 +3,7 @@ package com.worktime.vo;
 // 登录返回对象：返回给前端保存的登录用户信息。
 public class LoginVO {
 
-    // 临时登录令牌；后续接 JWT 时会替换成正式 token。
+    // 登录令牌；后续请求需要放到 Authorization 请求头中。
     private String token;
 
     // 用户编号。
