@@ -106,8 +106,9 @@ CREATE TABLE `work_time_apply` (
     `work_hours` DECIMAL(4, 1) NOT NULL COMMENT '工时数，范围 0.5 到 24，按 0.5 小时粒度填写',
     `work_desc` VARCHAR(500) NULL COMMENT '工作描述',
     `status` INT NOT NULL COMMENT '工时状态：0草稿，1待审批，2审批通过，3已驳回',
+    `is_deleted` INT NOT NULL DEFAULT 0 COMMENT '删除标记：0未删除，1已删除',
     PRIMARY KEY (`work_id`),
-    UNIQUE KEY `uk_work_time_user_project_date` (`user_id`, `project_id`, `work_date`),
+    KEY `idx_work_time_user_project_date` (`user_id`, `project_id`, `work_date`),
     KEY `idx_work_time_project_id` (`project_id`),
     KEY `idx_work_time_status` (`status`),
     CONSTRAINT `fk_work_time_user`
@@ -122,6 +123,8 @@ CREATE TABLE `work_time_apply` (
         ON DELETE RESTRICT,
     CONSTRAINT `ck_work_time_status`
         CHECK (`status` IN (0, 1, 2, 3)),
+    CONSTRAINT `ck_work_time_is_deleted`
+        CHECK (`is_deleted` IN (0, 1)),
     CONSTRAINT `ck_work_hours_range`
         CHECK (`work_hours` >= 0.5 AND `work_hours` <= 24.0),
     CONSTRAINT `ck_work_hours_step`

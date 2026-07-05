@@ -17,6 +17,9 @@ public interface WorkTimeApplyMapper {
     // 根据工时编号查询单条工时申报单。
     WorkTimeApplyRowVO selectById(Integer workId);
 
+    // 根据工时编号统计工时申报单数量，包含已软删除记录。
+    int countByIdIncludeDeleted(Integer workId);
+
     // 根据用户编号查询该用户的工时申报单。
     List<WorkTimeApplyRowVO> selectByUserId(Integer userId);
 
@@ -59,4 +62,7 @@ public interface WorkTimeApplyMapper {
 
     // 修改工时状态。
     int updateStatusById(@Param("workId") Integer workId, @Param("status") Integer status);
+
+    // 软删除工时申报单。
+    int softDeleteById(Integer workId);
 }

@@ -27,6 +27,8 @@ public class GlobalExceptionHandler {
     // 处理其他未预料到的异常，避免把数据库错误、代码堆栈直接暴露给前端。
     @ExceptionHandler(Exception.class)
     public ApiResponse<Void> handleException(Exception exception) {
+        // 开发阶段先把真实异常打印到 IDEA 控制台，方便定位接口测试时的 500 问题。
+        exception.printStackTrace();
         return ApiResponse.fail(500, "系统异常，请稍后再试");
     }
 }

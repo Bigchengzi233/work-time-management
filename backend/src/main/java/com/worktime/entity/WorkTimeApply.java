@@ -27,6 +27,9 @@ public class WorkTimeApply {
     // 工时状态：0草稿，1待审批，2审批通过，3已驳回。
     private Integer status;
 
+    // 删除标记：0未删除，1已删除。
+    private Integer isDeleted;
+
     public Integer getWorkId() {
         return workId;
     }
@@ -81,5 +84,13 @@ public class WorkTimeApply {
 
     public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public Integer getIsDeleted() {
+        return isDeleted;
+    }
+
+    public void setIsDeleted(Integer isDeleted) {
+        this.isDeleted = isDeleted;
     }
 }

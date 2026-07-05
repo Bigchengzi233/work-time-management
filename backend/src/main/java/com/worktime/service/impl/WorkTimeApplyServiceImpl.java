@@ -123,6 +123,7 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         workTime.setWorkHours(createDTO.getWorkHours());
         workTime.setWorkDesc(normalizeDesc(createDTO.getWorkDesc()));
         workTime.setStatus(STATUS_DRAFT);
+        workTime.setIsDeleted(0);
 
         workTimeApplyMapper.insert(workTime);
         addLog(workTime.getWorkId(), OPERATION_CREATE, workTime.getUserId(), "员工新建工时草稿");
@@ -182,6 +183,27 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         workTimeApplyMapper.updateStatusById(workId, STATUS_PENDING);
         addLog(workId, OPERATION_SUBMIT, oldWorkTime.getUserId(), "员工提交审批");
         return getWorkTimeById(workId);
+    }
+
+    // 员工删除工时草稿或已驳回工时。
+    @Override
+    @Transactional
+    public void deleteWorkTime(Integer workId, Integer userId) {
+        WorkTimeApplyRowVO oldWorkTime = workTimeApplyMapper.selectById(workId);
+        if (oldWorkTime == null) {
+            throw new BusinessException(404, "工时申报单不存在");
+        }
+
+        if (!oldWorkTime.getUserId().equals(userId)) {
+            throw new BusinessException(400, "只能删除本人填报的工时");
+        }
+
+        if (oldWorkTime.getStatus() != STATUS_DRAFT && oldWorkTime.getStatus() != STATUS_REJECTED) {
+            throw new BusinessException(400, "只有草稿或已驳回的工时可以删除");
+        }
+
+        addLog(workId, OPERATION_UPDATE, userId, "员工删除工时申报单");
+        workTimeApplyMapper.softDeleteById(workId);
     }
 
     // 部门经理审批通过工时，并写入审批通过日志。

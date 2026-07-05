@@ -15,6 +15,7 @@
         <result column="work_hours" property="workHours"/>
         <result column="work_desc" property="workDesc"/>
         <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
         <result column="user_name" property="userName"/>
         <result column="user_dept_id" property="userDeptId"/>
         <result column="user_dept_name" property="userDeptName"/>
@@ -45,6 +46,7 @@
             w.work_hours,
             w.work_desc,
             w.status,
+            w.is_deleted,
             u.user_name,
             u.dept_id AS user_dept_id,
             ud.dept_name AS user_dept_name,
@@ -62,6 +64,7 @@
     <!-- 查询全部工时申报单。 -->
     <select id="selectAll" resultMap="WorkTimeApplyRowResultMap">
         <include refid="WorkTimeSelectColumns"/>
+        WHERE w.is_deleted = 0
         ORDER BY w.work_date DESC, w.work_id DESC
     </select>
 
@@ -69,12 +72,21 @@
     <select id="selectById" resultMap="WorkTimeApplyRowResultMap">
         <include refid="WorkTimeSelectColumns"/>
         WHERE w.work_id = #{workId}
+          AND w.is_deleted = 0
+    </select>
+
+    <!-- 根据工时编号统计工时申报单数量，包含已软删除记录。 -->
+    <select id="countByIdIncludeDeleted" resultType="int">
+        SELECT COUNT(1)
+        FROM work_time_apply
+        WHERE work_id = #{workId}
     </select>
 
     <!-- 根据用户编号查询该用户的工时申报单。 -->
     <select id="selectByUserId" resultMap="WorkTimeApplyRowResultMap">
         <include refid="WorkTimeSelectColumns"/>
         WHERE w.user_id = #{userId}
+          AND w.is_deleted = 0
         ORDER BY w.work_date DESC, w.work_id DESC
     </select>
 
@@ -85,6 +97,7 @@
         WHERE manager_user.user_role = '1'
           AND manager_user.dept_id = u.dept_id
           AND w.status = 1
+          AND w.is_deleted = 0
         ORDER BY w.work_date DESC, w.work_id DESC
     </select>
 
@@ -144,6 +157,7 @@
         WHERE user_id = #{userId}
           AND project_id = #{projectId}
           AND work_date = #{workDate}
+          AND is_deleted = 0
     </select>
 
     <!-- 修改时检查同一用户、同一项目、同一天是否被其他工时申报单占用。 -->
@@ -154,6 +168,7 @@
           AND project_id = #{projectId}
           AND work_date = #{workDate}
           AND work_id != #{workId}
+          AND is_deleted = 0
     </select>
 
     <!-- 新增工时申报单，状态由业务层设置为草稿。 -->
@@ -164,14 +179,16 @@
             work_date,
             work_hours,
             work_desc,
-            status
+            status,
+            is_deleted
         ) VALUES (
             #{userId},
             #{projectId},
             #{workDate},
             #{workHours},
             #{workDesc},
-            #{status}
+            #{status},
+            #{isDeleted}
         )
     </insert>
 
@@ -192,5 +209,14 @@
         UPDATE work_time_apply
         SET status = #{status}
         WHERE work_id = #{workId}
+          AND is_deleted = 0
+    </update>
+
+    <!-- 软删除工时申报单：保留记录和日志，只在业务查询中隐藏。 -->
+    <update id="softDeleteById">
+        UPDATE work_time_apply
+        SET is_deleted = 1
+        WHERE work_id = #{workId}
+          AND is_deleted = 0
     </update>
 </mapper>

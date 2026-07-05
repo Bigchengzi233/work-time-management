@@ -27,7 +27,7 @@ public class WorkTimeLogServiceImpl implements WorkTimeLogService {
     // 根据工时编号查询该工时申报单的操作日志。
     @Override
     public List<WorkTimeLogVO> listLogsByWorkId(Integer workId) {
-        if (workTimeApplyMapper.selectById(workId) == null) {
+        if (workTimeApplyMapper.countByIdIncludeDeleted(workId) == 0) {
             throw new BusinessException(404, "工时申报单不存在");
         }
         return workTimeLogMapper.selectByWorkId(workId).stream()

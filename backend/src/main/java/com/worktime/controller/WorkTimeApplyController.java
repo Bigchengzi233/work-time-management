@@ -8,12 +8,14 @@ import com.worktime.dto.WorkTimeUpdateDTO;
 import com.worktime.service.WorkTimeApplyService;
 import com.worktime.vo.WorkTimeApplyVO;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -72,6 +74,15 @@ public class WorkTimeApplyController {
     @PostMapping("/{workId}/submit")
     public ApiResponse<WorkTimeApplyVO> submitWorkTime(@PathVariable Integer workId) {
         return ApiResponse.success(workTimeApplyService.submitWorkTime(workId));
+    }
+
+    // 删除工时草稿或已驳回工时，对应 DELETE /api/work-times/{workId}?userId=员工编号。
+    @DeleteMapping("/{workId}")
+    public ApiResponse<Void> deleteWorkTime(
+            @PathVariable Integer workId,
+            @RequestParam Integer userId) {
+        workTimeApplyService.deleteWorkTime(workId, userId);
+        return ApiResponse.success();
     }
 
     // 部门经理审批通过工时，对应 POST /api/work-times/{workId}/approve。

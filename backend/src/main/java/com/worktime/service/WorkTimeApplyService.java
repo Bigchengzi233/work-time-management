@@ -32,6 +32,9 @@ public interface WorkTimeApplyService {
     // 提交工时审批。
     WorkTimeApplyVO submitWorkTime(Integer workId);
 
+    // 员工删除工时草稿或已驳回工时。
+    void deleteWorkTime(Integer workId, Integer userId);
+
     // 部门经理审批通过工时。
     WorkTimeApplyVO approveWorkTime(Integer workId, WorkTimeApproveDTO approveDTO);
 

@@ -48,6 +48,9 @@ public class WorkTimeApplyVO {
     // 工时状态：0草稿，1待审批，2审批通过，3已驳回。
     private Integer status;
 
+    // 删除标记：0未删除，1已删除。
+    private Integer isDeleted;
+
     public static WorkTimeApplyVO fromRow(WorkTimeApplyRowVO row) {
         WorkTimeApplyVO vo = new WorkTimeApplyVO();
         vo.setWorkId(row.getWorkId());
@@ -64,6 +67,7 @@ public class WorkTimeApplyVO {
         vo.setWorkHours(row.getWorkHours());
         vo.setWorkDesc(row.getWorkDesc());
         vo.setStatus(row.getStatus());
+        vo.setIsDeleted(row.getIsDeleted());
         return vo;
     }
 
@@ -177,5 +181,13 @@ public class WorkTimeApplyVO {
 
     public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public Integer getIsDeleted() {
+        return isDeleted;
+    }
+
+    public void setIsDeleted(Integer isDeleted) {
+        this.isDeleted = isDeleted;
     }
 }
