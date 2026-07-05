@@ -1,6 +1,7 @@
 package com.worktime.controller;
 
 import com.worktime.common.ApiResponse;
+import com.worktime.common.AuthUtil;
 import com.worktime.dto.UserCreateDTO;
 import com.worktime.dto.UserUpdateDTO;
 import com.worktime.service.UserService;
@@ -32,18 +33,21 @@ public class UserController {
     // 查询全部用户，对应 GET /api/users。
     @GetMapping
     public ApiResponse<List<UserVO>> listUsers() {
+        AuthUtil.requireAdmin();
         return ApiResponse.success(userService.listUsers());
     }
 
     // 根据用户编号查询单个用户，对应 GET /api/users/{userId}。
     @GetMapping("/{userId}")
     public ApiResponse<UserVO> getUserById(@PathVariable Integer userId) {
+        AuthUtil.requireAdmin();
         return ApiResponse.success(userService.getUserById(userId));
     }
 
     // 新增用户，对应 POST /api/users。
     @PostMapping
     public ApiResponse<UserVO> createUser(@Valid @RequestBody UserCreateDTO createDTO) {
+        AuthUtil.requireAdmin();
         return ApiResponse.success(userService.createUser(createDTO));
     }
 
@@ -52,12 +56,14 @@ public class UserController {
     public ApiResponse<UserVO> updateUser(
             @PathVariable Integer userId,
             @Valid @RequestBody UserUpdateDTO updateDTO) {
+        AuthUtil.requireAdmin();
         return ApiResponse.success(userService.updateUser(userId, updateDTO));
     }
 
     // 删除用户，对应 DELETE /api/users/{userId}。
     @DeleteMapping("/{userId}")
     public ApiResponse<Void> deleteUser(@PathVariable Integer userId) {
+        AuthUtil.requireAdmin();
         userService.deleteUser(userId);
         return ApiResponse.success();
     }

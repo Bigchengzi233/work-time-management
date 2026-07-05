@@ -1,6 +1,7 @@
 package com.worktime.controller;
 
 import com.worktime.common.ApiResponse;
+import com.worktime.common.AuthUtil;
 import com.worktime.dto.DepartmentCreateDTO;
 import com.worktime.dto.DepartmentUpdateDTO;
 import com.worktime.service.DepartmentService;
@@ -33,6 +34,7 @@ public class DepartmentController {
     // 查询全部部门接口，对应 GET /api/departments。
     @GetMapping
     public ApiResponse<List<DepartmentVO>> listDepartments() {
+        AuthUtil.requireAdmin();
         // 调用业务层查询部门列表，并用统一响应格式返回给前端。
         return ApiResponse.success(departmentService.listDepartments());
     }
@@ -40,6 +42,7 @@ public class DepartmentController {
     // 根据部门编号查询单个部门，对应 GET /api/departments/{deptId}。
     @GetMapping("/{deptId}")
     public ApiResponse<DepartmentVO> getDepartmentById(@PathVariable Integer deptId) {
+        AuthUtil.requireAdmin();
         // 从路径中接收 deptId，然后交给业务层查询部门详情。
         return ApiResponse.success(departmentService.getDepartmentById(deptId));
     }
@@ -47,6 +50,7 @@ public class DepartmentController {
     // 新增部门接口，对应 POST /api/departments。
     @PostMapping
     public ApiResponse<DepartmentVO> createDepartment(@Valid @RequestBody DepartmentCreateDTO createDTO) {
+        AuthUtil.requireAdmin();
         // @RequestBody 表示从请求体 JSON 中读取数据，@Valid 表示启用参数校验。
         return ApiResponse.success(departmentService.createDepartment(createDTO));
     }
@@ -56,6 +60,7 @@ public class DepartmentController {
     public ApiResponse<DepartmentVO> updateDepartment(
             @PathVariable Integer deptId,
             @Valid @RequestBody DepartmentUpdateDTO updateDTO) {
+        AuthUtil.requireAdmin();
         // 路径中的 deptId 决定修改哪条部门记录，请求体中的 deptName 决定修改后的名称。
         return ApiResponse.success(departmentService.updateDepartment(deptId, updateDTO));
     }
@@ -63,6 +68,7 @@ public class DepartmentController {
     // 删除部门接口，对应 DELETE /api/departments/{deptId}。
     @DeleteMapping("/{deptId}")
     public ApiResponse<Void> deleteDepartment(@PathVariable Integer deptId) {
+        AuthUtil.requireAdmin();
         // 删除前会在业务层检查该部门下是否存在用户或项目。
         departmentService.deleteDepartment(deptId);
         return ApiResponse.success();

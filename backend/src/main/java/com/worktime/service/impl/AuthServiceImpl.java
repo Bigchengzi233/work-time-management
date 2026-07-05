@@ -85,7 +85,7 @@ public class AuthServiceImpl implements AuthService {
     // 组装登录返回对象。
     private LoginVO buildLoginVO(UserRowVO user) {
         LoginVO loginVO = new LoginVO();
-        loginVO.setToken(tokenUtil.generateToken(user.getUserId(), user.getUserRole()));
+        loginVO.setToken(tokenUtil.generateToken(user.getUserId(), user.getUserRole(), user.getDeptId()));
         loginVO.setUserId(user.getUserId());
         loginVO.setUserName(user.getUserName());
         loginVO.setPhone(user.getPhone());

@@ -1,5 +1,8 @@
 package com.worktime.service.impl;
 
+import com.worktime.common.AuthUtil;
+import com.worktime.common.CurrentUser;
+import com.worktime.common.RoleConstants;
 import com.worktime.dto.WorkTimeApproveDTO;
 import com.worktime.dto.WorkTimeCreateDTO;
 import com.worktime.dto.WorkTimeRejectDTO;
@@ -66,6 +69,7 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
     // 查询全部工时申报单。
     @Override
     public List<WorkTimeApplyVO> listWorkTimes() {
+        AuthUtil.requireAdmin();
         return workTimeApplyMapper.selectAll().stream()
                 .map(WorkTimeApplyVO::fromRow)
                 .toList();
@@ -78,12 +82,22 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         if (workTime == null) {
             throw new BusinessException(404, "工时申报单不存在");
         }
+        validateCanViewWorkTime(workTime);
         return WorkTimeApplyVO.fromRow(workTime);
     }
 
     // 根据用户编号查询该用户的工时申报单。
     @Override
     public List<WorkTimeApplyVO> listWorkTimesByUserId(Integer userId) {
+        CurrentUser currentUser = AuthUtil.currentUser();
+        if (RoleConstants.EMPLOYEE.equals(currentUser.getUserRole())) {
+            AuthUtil.requireSelf(userId);
+        } else if (RoleConstants.MANAGER.equals(currentUser.getUserRole())) {
+            throw new BusinessException(403, "部门经理请使用待审批接口查看工时");
+        } else if (!RoleConstants.ADMIN.equals(currentUser.getUserRole())) {
+            throw new BusinessException(403, "无权查看工时数据");
+        }
+
         if (workTimeApplyMapper.countUserById(userId) == 0) {
             throw new BusinessException(404, "用户不存在");
         }
@@ -95,6 +109,11 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
     // 根据部门经理编号查询其本部门待审批工时。
     @Override
     public List<WorkTimeApplyVO> listPendingWorkTimesByManagerId(Integer managerId) {
+        CurrentUser currentUser = AuthUtil.requireManager();
+        if (!currentUser.getUserId().equals(managerId)) {
+            throw new BusinessException(403, "只能查看本人负责审批的工时");
+        }
+
         if (workTimeApplyMapper.countManagerById(managerId) == 0) {
             throw new BusinessException(400, "审批人不是部门经理");
         }
@@ -107,6 +126,8 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
     @Override
     @Transactional
     public WorkTimeApplyVO createWorkTime(WorkTimeCreateDTO createDTO) {
+        AuthUtil.requireEmployee();
+        AuthUtil.requireSelf(createDTO.getUserId());
         validateCommonRule(createDTO.getUserId(), createDTO.getProjectId(), createDTO.getWorkDate(), createDTO.getWorkHours());
 
         if (workTimeApplyMapper.countDuplicateForCreate(
@@ -138,6 +159,8 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         if (oldWorkTime == null) {
             throw new BusinessException(404, "工时申报单不存在");
         }
+        AuthUtil.requireEmployee();
+        AuthUtil.requireSelf(oldWorkTime.getUserId());
 
         if (oldWorkTime.getStatus() != STATUS_DRAFT && oldWorkTime.getStatus() != STATUS_REJECTED) {
             throw new BusinessException(400, "只有草稿或已驳回的工时可以修改");
@@ -175,6 +198,8 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         if (oldWorkTime == null) {
             throw new BusinessException(404, "工时申报单不存在");
         }
+        AuthUtil.requireEmployee();
+        AuthUtil.requireSelf(oldWorkTime.getUserId());
 
         if (oldWorkTime.getStatus() != STATUS_DRAFT) {
             throw new BusinessException(400, "只有草稿状态的工时可以提交审批");
@@ -193,6 +218,8 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         if (oldWorkTime == null) {
             throw new BusinessException(404, "工时申报单不存在");
         }
+        AuthUtil.requireEmployee();
+        AuthUtil.requireSelf(userId);
 
         if (!oldWorkTime.getUserId().equals(userId)) {
             throw new BusinessException(400, "只能删除本人填报的工时");
@@ -210,6 +237,10 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
     @Override
     @Transactional
     public WorkTimeApplyVO approveWorkTime(Integer workId, WorkTimeApproveDTO approveDTO) {
+        CurrentUser currentUser = AuthUtil.requireManager();
+        if (!currentUser.getUserId().equals(approveDTO.getManagerId())) {
+            throw new BusinessException(403, "只能使用本人经理编号审批工时");
+        }
         validateApprovalRule(workId, approveDTO.getManagerId());
         workTimeApplyMapper.updateStatusById(workId, STATUS_APPROVED);
         addLog(workId, OPERATION_APPROVE, approveDTO.getManagerId(), normalizeApproveDesc(approveDTO.getOperationDesc()));
@@ -220,6 +251,10 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
     @Override
     @Transactional
     public WorkTimeApplyVO rejectWorkTime(Integer workId, WorkTimeRejectDTO rejectDTO) {
+        CurrentUser currentUser = AuthUtil.requireManager();
+        if (!currentUser.getUserId().equals(rejectDTO.getManagerId())) {
+            throw new BusinessException(403, "只能使用本人经理编号审批工时");
+        }
         validateApprovalRule(workId, rejectDTO.getManagerId());
         workTimeApplyMapper.updateStatusById(workId, STATUS_REJECTED);
         addLog(workId, OPERATION_REJECT, rejectDTO.getManagerId(), rejectDTO.getRejectReason().trim());
@@ -272,6 +307,21 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         if (rule.getWorkStatus() != STATUS_PENDING) {
             throw new BusinessException(400, "只有待审批状态的工时可以审批");
         }
+    }
+
+    // 校验当前登录人是否可以查看某条工时。
+    private void validateCanViewWorkTime(WorkTimeApplyRowVO workTime) {
+        CurrentUser currentUser = AuthUtil.currentUser();
+        if (RoleConstants.ADMIN.equals(currentUser.getUserRole())) {
+            return;
+        }
+        if (RoleConstants.EMPLOYEE.equals(currentUser.getUserRole()) && currentUser.getUserId().equals(workTime.getUserId())) {
+            return;
+        }
+        if (RoleConstants.MANAGER.equals(currentUser.getUserRole()) && currentUser.getDeptId().equals(workTime.getUserDeptId())) {
+            return;
+        }
+        throw new BusinessException(403, "无权查看该工时");
     }
 
     // 新增一条工时操作日志。

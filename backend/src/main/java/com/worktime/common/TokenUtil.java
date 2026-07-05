@@ -27,10 +27,10 @@ public class TokenUtil {
         this.expireHours = expireHours;
     }
 
-    // 根据用户编号和角色生成 token。
-    public String generateToken(Integer userId, String userRole) {
+    // 根据用户编号、角色和部门生成 token。
+    public String generateToken(Integer userId, String userRole, Integer deptId) {
         long expireAt = System.currentTimeMillis() + Duration.ofHours(expireHours).toMillis();
-        String payload = userId + ":" + userRole + ":" + expireAt;
+        String payload = userId + ":" + userRole + ":" + deptId + ":" + expireAt;
         String encodedPayload = base64UrlEncode(payload.getBytes(StandardCharsets.UTF_8));
         String signature = sign(encodedPayload);
         return encodedPayload + "." + signature;
@@ -58,19 +58,20 @@ public class TokenUtil {
         try {
             String payload = new String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8);
             String[] payloadParts = payload.split(":");
-            if (payloadParts.length != 3) {
+            if (payloadParts.length != 4) {
                 return null;
             }
 
             Integer userId = Integer.valueOf(payloadParts[0]);
             String userRole = payloadParts[1];
-            Long expireAt = Long.valueOf(payloadParts[2]);
+            Integer deptId = Integer.valueOf(payloadParts[2]);
+            Long expireAt = Long.valueOf(payloadParts[3]);
 
             if (expireAt < System.currentTimeMillis()) {
                 return null;
             }
 
-            return new TokenPayload(userId, userRole, expireAt);
+            return new TokenPayload(userId, userRole, deptId, expireAt);
         } catch (RuntimeException exception) {
             return null;
         }

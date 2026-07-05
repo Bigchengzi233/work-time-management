@@ -1,5 +1,7 @@
 package com.worktime.service.impl;
 
+import com.worktime.common.AuthUtil;
+import com.worktime.common.CurrentUser;
 import com.worktime.exception.BusinessException;
 import com.worktime.mapper.StatisticsMapper;
 import com.worktime.service.StatisticsService;
@@ -26,6 +28,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public WorkTimeStatisticsVO getPersonalStatistics(Integer userId, LocalDate startDate, LocalDate endDate) {
         validateDateRange(startDate, endDate);
+        CurrentUser currentUser = AuthUtil.requireEmployee();
+        if (!currentUser.getUserId().equals(userId)) {
+            throw new BusinessException(403, "只能查询本人个人工时统计");
+        }
 
         if (statisticsMapper.countUserById(userId) == 0) {
             throw new BusinessException(404, "用户不存在");
@@ -39,6 +45,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public WorkTimeStatisticsVO getDepartmentStatistics(Integer managerId, LocalDate startDate, LocalDate endDate) {
         validateDateRange(startDate, endDate);
+        CurrentUser currentUser = AuthUtil.requireManager();
+        if (!currentUser.getUserId().equals(managerId)) {
+            throw new BusinessException(403, "只能查询本人负责部门的工时统计");
+        }
 
         if (statisticsMapper.countManagerById(managerId) == 0) {
             throw new BusinessException(400, "查询人不是部门经理");
@@ -52,6 +62,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public WorkTimeStatisticsVO getCompanyStatistics(Integer adminId, LocalDate startDate, LocalDate endDate) {
         validateDateRange(startDate, endDate);
+        CurrentUser currentUser = AuthUtil.requireAdmin();
+        if (!currentUser.getUserId().equals(adminId)) {
+            throw new BusinessException(403, "只能使用本人管理员编号查询公司统计");
+        }
 
         if (statisticsMapper.countAdminById(adminId) == 0) {
             throw new BusinessException(400, "查询人不是管理员");

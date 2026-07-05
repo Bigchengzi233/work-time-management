@@ -1,6 +1,7 @@
 package com.worktime.controller;
 
 import com.worktime.common.ApiResponse;
+import com.worktime.common.AuthUtil;
 import com.worktime.dto.ProjectCreateDTO;
 import com.worktime.dto.ProjectUpdateDTO;
 import com.worktime.service.ProjectService;
@@ -32,18 +33,21 @@ public class ProjectController {
     // 查询全部项目，对应 GET /api/projects。
     @GetMapping
     public ApiResponse<List<ProjectVO>> listProjects() {
+        AuthUtil.requireAdmin();
         return ApiResponse.success(projectService.listProjects());
     }
 
     // 根据项目编号查询单个项目，对应 GET /api/projects/{projectId}。
     @GetMapping("/{projectId}")
     public ApiResponse<ProjectVO> getProjectById(@PathVariable Integer projectId) {
+        AuthUtil.requireAdmin();
         return ApiResponse.success(projectService.getProjectById(projectId));
     }
 
     // 新增项目，对应 POST /api/projects。
     @PostMapping
     public ApiResponse<ProjectVO> createProject(@Valid @RequestBody ProjectCreateDTO createDTO) {
+        AuthUtil.requireAdmin();
         return ApiResponse.success(projectService.createProject(createDTO));
     }
 
@@ -52,12 +56,14 @@ public class ProjectController {
     public ApiResponse<ProjectVO> updateProject(
             @PathVariable Integer projectId,
             @Valid @RequestBody ProjectUpdateDTO updateDTO) {
+        AuthUtil.requireAdmin();
         return ApiResponse.success(projectService.updateProject(projectId, updateDTO));
     }
 
     // 删除项目，对应 DELETE /api/projects/{projectId}。
     @DeleteMapping("/{projectId}")
     public ApiResponse<Void> deleteProject(@PathVariable Integer projectId) {
+        AuthUtil.requireAdmin();
         projectService.deleteProject(projectId);
         return ApiResponse.success();
     }

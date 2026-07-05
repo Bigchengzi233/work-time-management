@@ -43,7 +43,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        AuthContext.setCurrentUser(new CurrentUser(tokenPayload.getUserId(), tokenPayload.getUserRole()));
+        AuthContext.setCurrentUser(new CurrentUser(tokenPayload.getUserId(), tokenPayload.getUserRole(), tokenPayload.getDeptId()));
         return true;
     }
 
