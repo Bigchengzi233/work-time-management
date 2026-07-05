@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace 必须和 Java 中的 DepartmentMapper 接口全限定名一致。 -->
+<mapper namespace="com.worktime.mapper.DepartmentMapper">
+
+    <!-- resultMap 用于说明 SQL 查询结果如何映射到 Department 实体类。 -->
+    <resultMap id="DepartmentResultMap" type="com.worktime.entity.Department">
+        <!-- dept_id 是数据库字段，deptId 是 Java 属性。 -->
+        <id column="dept_id" property="deptId"/>
+        <!-- dept_name 是数据库字段，deptName 是 Java 属性。 -->
+        <result column="dept_name" property="deptName"/>
+    </resultMap>
+
+    <!-- id 必须和 DepartmentMapper 接口中的方法名 selectAll 一致。 -->
+    <select id="selectAll" resultMap="DepartmentResultMap">
+        SELECT
+            dept_id,
+            dept_name
+        FROM department
+        ORDER BY dept_id ASC
+    </select>
+</mapper>

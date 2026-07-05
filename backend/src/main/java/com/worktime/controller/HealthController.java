@@ -1,6 +1,7 @@
 package com.worktime.controller;
 
 import com.worktime.common.ApiResponse;
+import com.worktime.exception.BusinessException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,5 +23,10 @@ public class HealthController {
     @GetMapping("/fail")
     public ApiResponse<String> fail(){
         return ApiResponse.fail(400,"后端服务异常");
+    }
+
+    @GetMapping("/exception")
+    public ApiResponse<String> exception(){
+        throw new BusinessException(400,"这是一个业务异常测试");
     }
 }
