@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace 必须和 Java 中的 WorkTimeLogMapper 接口全限定名一致。 -->
+<mapper namespace="com.worktime.mapper.WorkTimeLogMapper">
+
+    <!-- 工时日志查询结果映射。 -->
+    <resultMap id="WorkTimeLogRowResultMap" type="com.worktime.vo.WorkTimeLogRowVO">
+        <id column="log_id" property="logId"/>
+        <result column="work_id" property="workId"/>
+        <result column="operation_type" property="operationType"/>
+        <result column="operation_time" property="operationTime"/>
+        <result column="operator_id" property="operatorId"/>
+        <result column="operation_desc" property="operationDesc"/>
+        <result column="operator_name" property="operatorName"/>
+    </resultMap>
+
+    <!-- 根据工时编号查询该工时申报单的操作日志。 -->
+    <select id="selectByWorkId" resultMap="WorkTimeLogRowResultMap">
+        SELECT
+            l.log_id,
+            l.work_id,
+            l.operation_type,
+            l.operation_time,
+            l.operator_id,
+            l.operation_desc,
+            u.user_name AS operator_name
+        FROM work_time_log l
+        INNER JOIN `user` u ON l.operator_id = u.user_id
+        WHERE l.work_id = #{workId}
+        ORDER BY l.operation_time ASC, l.log_id ASC
+    </select>
+
+    <!-- 新增工时操作日志。 -->
+    <insert id="insert" parameterType="com.worktime.entity.WorkTimeLog" useGeneratedKeys="true" keyProperty="logId">
+        INSERT INTO work_time_log (
+            work_id,
+            operation_type,
+            operation_time,
+            operator_id,
+            operation_desc
+        ) VALUES (
+            #{workId},
+            #{operationType},
+            #{operationTime},
+            #{operatorId},
+            #{operationDesc}
+        )
+    </insert>
+</mapper>

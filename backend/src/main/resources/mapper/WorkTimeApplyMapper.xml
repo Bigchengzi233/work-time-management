@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace 必须和 Java 中的 WorkTimeApplyMapper 接口全限定名一致。 -->
+<mapper namespace="com.worktime.mapper.WorkTimeApplyMapper">
+
+    <!-- 工时申报列表查询结果映射。 -->
+    <resultMap id="WorkTimeApplyRowResultMap" type="com.worktime.vo.WorkTimeApplyRowVO">
+        <id column="work_id" property="workId"/>
+        <result column="user_id" property="userId"/>
+        <result column="project_id" property="projectId"/>
+        <result column="work_date" property="workDate"/>
+        <result column="work_hours" property="workHours"/>
+        <result column="work_desc" property="workDesc"/>
+        <result column="status" property="status"/>
+        <result column="user_name" property="userName"/>
+        <result column="user_dept_id" property="userDeptId"/>
+        <result column="user_dept_name" property="userDeptName"/>
+        <result column="project_name" property="projectName"/>
+        <result column="project_status" property="projectStatus"/>
+        <result column="project_dept_id" property="projectDeptId"/>
+        <result column="project_dept_name" property="projectDeptName"/>
+    </resultMap>
+
+    <!-- 工时申报列表基础查询 SQL。 -->
+    <sql id="WorkTimeSelectColumns">
+        SELECT
+            w.work_id,
+            w.user_id,
+            w.project_id,
+            w.work_date,
+            w.work_hours,
+            w.work_desc,
+            w.status,
+            u.user_name,
+            u.dept_id AS user_dept_id,
+            ud.dept_name AS user_dept_name,
+            p.project_name,
+            p.project_status,
+            p.dept_id AS project_dept_id,
+            pd.dept_name AS project_dept_name
+        FROM work_time_apply w
+        INNER JOIN `user` u ON w.user_id = u.user_id
+        INNER JOIN department ud ON u.dept_id = ud.dept_id
+        INNER JOIN project p ON w.project_id = p.project_id
+        INNER JOIN department pd ON p.dept_id = pd.dept_id
+    </sql>
+
+    <!-- 查询全部工时申报单。 -->
+    <select id="selectAll" resultMap="WorkTimeApplyRowResultMap">
+        <include refid="WorkTimeSelectColumns"/>
+        ORDER BY w.work_date DESC, w.work_id DESC
+    </select>
+
+    <!-- 根据工时编号查询单条工时申报单。 -->
+    <select id="selectById" resultMap="WorkTimeApplyRowResultMap">
+        <include refid="WorkTimeSelectColumns"/>
+        WHERE w.work_id = #{workId}
+    </select>
+
+    <!-- 根据用户编号查询该用户的工时申报单。 -->
+    <select id="selectByUserId" resultMap="WorkTimeApplyRowResultMap">
+        <include refid="WorkTimeSelectColumns"/>
+        WHERE w.user_id = #{userId}
+        ORDER BY w.work_date DESC, w.work_id DESC
+    </select>
+
+    <!-- 检查用户是否存在。 -->
+    <select id="countUserById" resultType="int">
+        SELECT COUNT(1)
+        FROM `user`
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 检查项目是否存在。 -->
+    <select id="countProjectById" resultType="int">
+        SELECT COUNT(1)
+        FROM project
+        WHERE project_id = #{projectId}
+    </select>
+
+    <!-- 检查用户和项目之间是否存在有效授权，同时要求项目处于启用状态。 -->
+    <select id="countValidUserProject" resultType="int">
+        SELECT COUNT(1)
+        FROM user_project up
+        INNER JOIN project p ON up.project_id = p.project_id
+        WHERE up.user_id = #{userId}
+          AND up.project_id = #{projectId}
+          AND up.auth_status = 1
+          AND p.project_status = 1
+    </select>
+
+    <!-- 新增时检查同一用户、同一项目、同一天是否已存在工时申报单。 -->
+    <select id="countDuplicateForCreate" resultType="int">
+        SELECT COUNT(1)
+        FROM work_time_apply
+        WHERE user_id = #{userId}
+          AND project_id = #{projectId}
+          AND work_date = #{workDate}
+    </select>
+
+    <!-- 修改时检查同一用户、同一项目、同一天是否被其他工时申报单占用。 -->
+    <select id="countDuplicateForUpdate" resultType="int">
+        SELECT COUNT(1)
+        FROM work_time_apply
+        WHERE user_id = #{userId}
+          AND project_id = #{projectId}
+          AND work_date = #{workDate}
+          AND work_id != #{workId}
+    </select>
+
+    <!-- 新增工时申报单，状态由业务层设置为草稿。 -->
+    <insert id="insert" parameterType="com.worktime.entity.WorkTimeApply" useGeneratedKeys="true" keyProperty="workId">
+        INSERT INTO work_time_apply (
+            user_id,
+            project_id,
+            work_date,
+            work_hours,
+            work_desc,
+            status
+        ) VALUES (
+            #{userId},
+            #{projectId},
+            #{workDate},
+            #{workHours},
+            #{workDesc},
+            #{status}
+        )
+    </insert>
+
+    <!-- 修改工时申报单；已驳回的工时修改后会回到草稿状态。 -->
+    <update id="updateById" parameterType="com.worktime.entity.WorkTimeApply">
+        UPDATE work_time_apply
+        SET
+            project_id = #{projectId},
+            work_date = #{workDate},
+            work_hours = #{workHours},
+            work_desc = #{workDesc},
+            status = #{status}
+        WHERE work_id = #{workId}
+    </update>
+
+    <!-- 修改工时状态。 -->
+    <update id="updateStatusById">
+        UPDATE work_time_apply
+        SET status = #{status}
+        WHERE work_id = #{workId}
+    </update>
+</mapper>
