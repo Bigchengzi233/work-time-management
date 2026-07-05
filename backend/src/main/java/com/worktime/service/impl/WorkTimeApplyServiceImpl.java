@@ -1,6 +1,8 @@
 package com.worktime.service.impl;
 
+import com.worktime.dto.WorkTimeApproveDTO;
 import com.worktime.dto.WorkTimeCreateDTO;
+import com.worktime.dto.WorkTimeRejectDTO;
 import com.worktime.dto.WorkTimeUpdateDTO;
 import com.worktime.entity.WorkTimeApply;
 import com.worktime.entity.WorkTimeLog;
@@ -8,6 +10,7 @@ import com.worktime.exception.BusinessException;
 import com.worktime.mapper.WorkTimeApplyMapper;
 import com.worktime.mapper.WorkTimeLogMapper;
 import com.worktime.service.WorkTimeApplyService;
+import com.worktime.vo.WorkTimeApprovalRuleVO;
 import com.worktime.vo.WorkTimeApplyRowVO;
 import com.worktime.vo.WorkTimeApplyVO;
 import org.springframework.stereotype.Service;
@@ -28,6 +31,9 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
     // 待审批状态。
     private static final int STATUS_PENDING = 1;
 
+    // 审批通过状态。
+    private static final int STATUS_APPROVED = 2;
+
     // 已驳回状态。
     private static final int STATUS_REJECTED = 3;
 
@@ -39,6 +45,12 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
 
     // 操作类型：提交。
     private static final int OPERATION_SUBMIT = 2;
+
+    // 操作类型：审批通过。
+    private static final int OPERATION_APPROVE = 3;
+
+    // 操作类型：驳回。
+    private static final int OPERATION_REJECT = 4;
 
     // 工时申报数据访问对象。
     private final WorkTimeApplyMapper workTimeApplyMapper;
@@ -76,6 +88,17 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
             throw new BusinessException(404, "用户不存在");
         }
         return workTimeApplyMapper.selectByUserId(userId).stream()
+                .map(WorkTimeApplyVO::fromRow)
+                .toList();
+    }
+
+    // 根据部门经理编号查询其本部门待审批工时。
+    @Override
+    public List<WorkTimeApplyVO> listPendingWorkTimesByManagerId(Integer managerId) {
+        if (workTimeApplyMapper.countManagerById(managerId) == 0) {
+            throw new BusinessException(400, "审批人不是部门经理");
+        }
+        return workTimeApplyMapper.selectPendingByManagerId(managerId).stream()
                 .map(WorkTimeApplyVO::fromRow)
                 .toList();
     }
@@ -161,6 +184,26 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         return getWorkTimeById(workId);
     }
 
+    // 部门经理审批通过工时，并写入审批通过日志。
+    @Override
+    @Transactional
+    public WorkTimeApplyVO approveWorkTime(Integer workId, WorkTimeApproveDTO approveDTO) {
+        validateApprovalRule(workId, approveDTO.getManagerId());
+        workTimeApplyMapper.updateStatusById(workId, STATUS_APPROVED);
+        addLog(workId, OPERATION_APPROVE, approveDTO.getManagerId(), normalizeApproveDesc(approveDTO.getOperationDesc()));
+        return getWorkTimeById(workId);
+    }
+
+    // 部门经理驳回工时，并写入驳回日志。
+    @Override
+    @Transactional
+    public WorkTimeApplyVO rejectWorkTime(Integer workId, WorkTimeRejectDTO rejectDTO) {
+        validateApprovalRule(workId, rejectDTO.getManagerId());
+        workTimeApplyMapper.updateStatusById(workId, STATUS_REJECTED);
+        addLog(workId, OPERATION_REJECT, rejectDTO.getManagerId(), rejectDTO.getRejectReason().trim());
+        return getWorkTimeById(workId);
+    }
+
     // 校验通用工时规则：用户存在、项目存在、有效授权、日期和工时数合法。
     private void validateCommonRule(Integer userId, Integer projectId, LocalDate workDate, BigDecimal workHours) {
         if (workTimeApplyMapper.countUserById(userId) == 0) {
@@ -184,6 +227,31 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         }
     }
 
+    // 校验审批规则：工时存在、审批人是部门经理、只能审批本部门待审批工时。
+    private void validateApprovalRule(Integer workId, Integer managerId) {
+        if (workTimeApplyMapper.selectById(workId) == null) {
+            throw new BusinessException(404, "工时申报单不存在");
+        }
+
+        if (workTimeApplyMapper.countManagerById(managerId) == 0) {
+            throw new BusinessException(400, "审批人不是部门经理");
+        }
+
+        WorkTimeApprovalRuleVO rule = workTimeApplyMapper.selectApprovalRule(workId, managerId);
+
+        if (!"1".equals(rule.getManagerRole())) {
+            throw new BusinessException(400, "只有部门经理可以审批工时");
+        }
+
+        if (!rule.getManagerDeptId().equals(rule.getWorkUserDeptId())) {
+            throw new BusinessException(400, "部门经理只能审批本部门员工工时");
+        }
+
+        if (rule.getWorkStatus() != STATUS_PENDING) {
+            throw new BusinessException(400, "只有待审批状态的工时可以审批");
+        }
+    }
+
     // 新增一条工时操作日志。
     private void addLog(Integer workId, Integer operationType, Integer operatorId, String operationDesc) {
         WorkTimeLog log = new WorkTimeLog();
@@ -201,5 +269,13 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
             return null;
         }
         return workDesc.trim();
+    }
+
+    // 审批通过说明允许为空，空时使用默认说明。
+    private String normalizeApproveDesc(String operationDesc) {
+        if (operationDesc == null || operationDesc.isBlank()) {
+            return "部门经理审批通过";
+        }
+        return operationDesc.trim();
     }
 }

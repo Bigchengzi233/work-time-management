@@ -1,7 +1,9 @@
 package com.worktime.controller;
 
 import com.worktime.common.ApiResponse;
+import com.worktime.dto.WorkTimeApproveDTO;
 import com.worktime.dto.WorkTimeCreateDTO;
+import com.worktime.dto.WorkTimeRejectDTO;
 import com.worktime.dto.WorkTimeUpdateDTO;
 import com.worktime.service.WorkTimeApplyService;
 import com.worktime.vo.WorkTimeApplyVO;
@@ -46,6 +48,12 @@ public class WorkTimeApplyController {
         return ApiResponse.success(workTimeApplyService.listWorkTimesByUserId(userId));
     }
 
+    // 根据部门经理编号查询其本部门待审批工时，对应 GET /api/work-times/pending/managers/{managerId}。
+    @GetMapping("/pending/managers/{managerId}")
+    public ApiResponse<List<WorkTimeApplyVO>> listPendingWorkTimesByManagerId(@PathVariable Integer managerId) {
+        return ApiResponse.success(workTimeApplyService.listPendingWorkTimesByManagerId(managerId));
+    }
+
     // 新建工时草稿，对应 POST /api/work-times。
     @PostMapping
     public ApiResponse<WorkTimeApplyVO> createWorkTime(@Valid @RequestBody WorkTimeCreateDTO createDTO) {
@@ -64,5 +72,21 @@ public class WorkTimeApplyController {
     @PostMapping("/{workId}/submit")
     public ApiResponse<WorkTimeApplyVO> submitWorkTime(@PathVariable Integer workId) {
         return ApiResponse.success(workTimeApplyService.submitWorkTime(workId));
+    }
+
+    // 部门经理审批通过工时，对应 POST /api/work-times/{workId}/approve。
+    @PostMapping("/{workId}/approve")
+    public ApiResponse<WorkTimeApplyVO> approveWorkTime(
+            @PathVariable Integer workId,
+            @Valid @RequestBody WorkTimeApproveDTO approveDTO) {
+        return ApiResponse.success(workTimeApplyService.approveWorkTime(workId, approveDTO));
+    }
+
+    // 部门经理驳回工时，对应 POST /api/work-times/{workId}/reject。
+    @PostMapping("/{workId}/reject")
+    public ApiResponse<WorkTimeApplyVO> rejectWorkTime(
+            @PathVariable Integer workId,
+            @Valid @RequestBody WorkTimeRejectDTO rejectDTO) {
+        return ApiResponse.success(workTimeApplyService.rejectWorkTime(workId, rejectDTO));
     }
 }

@@ -1,6 +1,8 @@
 package com.worktime.service;
 
 import com.worktime.dto.WorkTimeCreateDTO;
+import com.worktime.dto.WorkTimeApproveDTO;
+import com.worktime.dto.WorkTimeRejectDTO;
 import com.worktime.dto.WorkTimeUpdateDTO;
 import com.worktime.vo.WorkTimeApplyVO;
 
@@ -18,6 +20,9 @@ public interface WorkTimeApplyService {
     // 根据用户编号查询该用户的工时申报单。
     List<WorkTimeApplyVO> listWorkTimesByUserId(Integer userId);
 
+    // 根据部门经理编号查询其本部门待审批工时。
+    List<WorkTimeApplyVO> listPendingWorkTimesByManagerId(Integer managerId);
+
     // 新建工时草稿。
     WorkTimeApplyVO createWorkTime(WorkTimeCreateDTO createDTO);
 
@@ -26,4 +31,10 @@ public interface WorkTimeApplyService {
 
     // 提交工时审批。
     WorkTimeApplyVO submitWorkTime(Integer workId);
+
+    // 部门经理审批通过工时。
+    WorkTimeApplyVO approveWorkTime(Integer workId, WorkTimeApproveDTO approveDTO);
+
+    // 部门经理驳回工时。
+    WorkTimeApplyVO rejectWorkTime(Integer workId, WorkTimeRejectDTO rejectDTO);
 }

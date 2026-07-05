@@ -24,6 +24,17 @@
         <result column="project_dept_name" property="projectDeptName"/>
     </resultMap>
 
+    <!-- 工时审批规则查询结果映射。 -->
+    <resultMap id="WorkTimeApprovalRuleResultMap" type="com.worktime.vo.WorkTimeApprovalRuleVO">
+        <id column="work_id" property="workId"/>
+        <result column="manager_id" property="managerId"/>
+        <result column="manager_role" property="managerRole"/>
+        <result column="manager_dept_id" property="managerDeptId"/>
+        <result column="work_status" property="workStatus"/>
+        <result column="work_user_id" property="workUserId"/>
+        <result column="work_user_dept_id" property="workUserDeptId"/>
+    </resultMap>
+
     <!-- 工时申报列表基础查询 SQL。 -->
     <sql id="WorkTimeSelectColumns">
         SELECT
@@ -67,11 +78,29 @@
         ORDER BY w.work_date DESC, w.work_id DESC
     </select>
 
+    <!-- 根据部门经理编号查询其本部门待审批工时。 -->
+    <select id="selectPendingByManagerId" resultMap="WorkTimeApplyRowResultMap">
+        <include refid="WorkTimeSelectColumns"/>
+        INNER JOIN `user` manager_user ON manager_user.user_id = #{managerId}
+        WHERE manager_user.user_role = '1'
+          AND manager_user.dept_id = u.dept_id
+          AND w.status = 1
+        ORDER BY w.work_date DESC, w.work_id DESC
+    </select>
+
     <!-- 检查用户是否存在。 -->
     <select id="countUserById" resultType="int">
         SELECT COUNT(1)
         FROM `user`
         WHERE user_id = #{userId}
+    </select>
+
+    <!-- 检查用户是否是部门经理。 -->
+    <select id="countManagerById" resultType="int">
+        SELECT COUNT(1)
+        FROM `user`
+        WHERE user_id = #{managerId}
+          AND user_role = '1'
     </select>
 
     <!-- 检查项目是否存在。 -->
@@ -90,6 +119,22 @@
           AND up.project_id = #{projectId}
           AND up.auth_status = 1
           AND p.project_status = 1
+    </select>
+
+    <!-- 查询审批规则所需信息：审批人角色、部门，以及工时填报人部门和当前状态。 -->
+    <select id="selectApprovalRule" resultMap="WorkTimeApprovalRuleResultMap">
+        SELECT
+            manager_user.user_id AS manager_id,
+            manager_user.user_role AS manager_role,
+            manager_user.dept_id AS manager_dept_id,
+            w.work_id,
+            w.status AS work_status,
+            w.user_id AS work_user_id,
+            apply_user.dept_id AS work_user_dept_id
+        FROM work_time_apply w
+        INNER JOIN `user` apply_user ON w.user_id = apply_user.user_id
+        INNER JOIN `user` manager_user ON manager_user.user_id = #{managerId}
+        WHERE w.work_id = #{workId}
     </select>
 
     <!-- 新增时检查同一用户、同一项目、同一天是否已存在工时申报单。 -->

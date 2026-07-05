@@ -1,6 +1,7 @@
 package com.worktime.mapper;
 
 import com.worktime.entity.WorkTimeApply;
+import com.worktime.vo.WorkTimeApprovalRuleVO;
 import com.worktime.vo.WorkTimeApplyRowVO;
 import org.apache.ibatis.annotations.Param;
 
@@ -19,14 +20,23 @@ public interface WorkTimeApplyMapper {
     // 根据用户编号查询该用户的工时申报单。
     List<WorkTimeApplyRowVO> selectByUserId(Integer userId);
 
+    // 根据部门经理编号查询其本部门待审批工时。
+    List<WorkTimeApplyRowVO> selectPendingByManagerId(Integer managerId);
+
     // 检查用户是否存在。
     int countUserById(Integer userId);
+
+    // 检查用户是否是部门经理。
+    int countManagerById(Integer managerId);
 
     // 检查项目是否存在。
     int countProjectById(Integer projectId);
 
     // 检查用户和项目之间是否存在有效授权，同时要求项目处于启用状态。
     int countValidUserProject(@Param("userId") Integer userId, @Param("projectId") Integer projectId);
+
+    // 查询审批规则所需信息。
+    WorkTimeApprovalRuleVO selectApprovalRule(@Param("workId") Integer workId, @Param("managerId") Integer managerId);
 
     // 新增时检查同一用户、同一项目、同一天是否已存在工时申报单。
     int countDuplicateForCreate(
