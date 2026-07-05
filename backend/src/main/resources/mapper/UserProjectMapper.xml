@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace 必须和 Java 中的 UserProjectMapper 接口全限定名一致。 -->
+<mapper namespace="com.worktime.mapper.UserProjectMapper">
+
+    <!-- 用户项目授权列表查询结果映射。 -->
+    <resultMap id="UserProjectRowResultMap" type="com.worktime.vo.UserProjectRowVO">
+        <id column="auth_id" property="authId"/>
+        <result column="user_id" property="userId"/>
+        <result column="project_id" property="projectId"/>
+        <result column="auth_time" property="authTime"/>
+        <result column="auth_status" property="authStatus"/>
+        <result column="user_name" property="userName"/>
+        <result column="user_dept_id" property="userDeptId"/>
+        <result column="user_dept_name" property="userDeptName"/>
+        <result column="project_name" property="projectName"/>
+        <result column="project_status" property="projectStatus"/>
+        <result column="project_dept_id" property="projectDeptId"/>
+        <result column="project_dept_name" property="projectDeptName"/>
+    </resultMap>
+
+    <!-- 授权规则校验查询结果映射。 -->
+    <resultMap id="UserProjectRuleResultMap" type="com.worktime.vo.UserProjectRuleVO">
+        <id column="user_id" property="userId"/>
+        <result column="user_role" property="userRole"/>
+        <result column="user_dept_id" property="userDeptId"/>
+        <result column="project_id" property="projectId"/>
+        <result column="project_dept_id" property="projectDeptId"/>
+        <result column="project_status" property="projectStatus"/>
+    </resultMap>
+
+    <!-- 用户项目授权列表基础查询 SQL。 -->
+    <sql id="UserProjectSelectColumns">
+        SELECT
+            up.auth_id,
+            up.user_id,
+            up.project_id,
+            up.auth_time,
+            up.auth_status,
+            u.user_name,
+            u.dept_id AS user_dept_id,
+            ud.dept_name AS user_dept_name,
+            p.project_name,
+            p.project_status,
+            p.dept_id AS project_dept_id,
+            pd.dept_name AS project_dept_name
+        FROM user_project up
+        INNER JOIN `user` u ON up.user_id = u.user_id
+        INNER JOIN department ud ON u.dept_id = ud.dept_id
+        INNER JOIN project p ON up.project_id = p.project_id
+        INNER JOIN department pd ON p.dept_id = pd.dept_id
+    </sql>
+
+    <!-- 查询全部授权记录。 -->
+    <select id="selectAll" resultMap="UserProjectRowResultMap">
+        <include refid="UserProjectSelectColumns"/>
+        ORDER BY up.auth_id ASC
+    </select>
+
+    <!-- 根据授权编号查询授权记录。 -->
+    <select id="selectById" resultMap="UserProjectRowResultMap">
+        <include refid="UserProjectSelectColumns"/>
+        WHERE up.auth_id = #{authId}
+    </select>
+
+    <!-- 根据用户编号查询该用户的授权记录。 -->
+    <select id="selectByUserId" resultMap="UserProjectRowResultMap">
+        <include refid="UserProjectSelectColumns"/>
+        WHERE up.user_id = #{userId}
+        ORDER BY up.auth_id ASC
+    </select>
+
+    <!-- 根据用户和项目查询授权规则所需信息。 -->
+    <select id="selectRuleInfo" resultMap="UserProjectRuleResultMap">
+        SELECT
+            u.user_id,
+            u.user_role,
+            u.dept_id AS user_dept_id,
+            p.project_id,
+            p.dept_id AS project_dept_id,
+            p.project_status
+        FROM `user` u
+        INNER JOIN project p ON p.project_id = #{projectId}
+        WHERE u.user_id = #{userId}
+    </select>
+
+    <!-- 检查用户是否存在。 -->
+    <select id="countUserById" resultType="int">
+        SELECT COUNT(1)
+        FROM `user`
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 检查项目是否存在。 -->
+    <select id="countProjectById" resultType="int">
+        SELECT COUNT(1)
+        FROM project
+        WHERE project_id = #{projectId}
+    </select>
+
+    <!-- 检查同一用户和同一项目是否已经存在授权记录。 -->
+    <select id="countByUserIdAndProjectId" resultType="int">
+        SELECT COUNT(1)
+        FROM user_project
+        WHERE user_id = #{userId}
+          AND project_id = #{projectId}
+    </select>
+
+    <!-- 新增授权记录。 -->
+    <insert id="insert" parameterType="com.worktime.entity.UserProject" useGeneratedKeys="true" keyProperty="authId">
+        INSERT INTO user_project (
+            user_id,
+            project_id,
+            auth_time,
+            auth_status
+        ) VALUES (
+            #{userId},
+            #{projectId},
+            #{authTime},
+            #{authStatus}
+        )
+    </insert>
+
+    <!-- 修改授权状态。 -->
+    <update id="updateStatusById">
+        UPDATE user_project
+        SET auth_status = #{authStatus}
+        WHERE auth_id = #{authId}
+    </update>
+</mapper>
