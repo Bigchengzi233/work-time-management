@@ -7,6 +7,7 @@ import DashboardView from '../views/DashboardView.vue'
 import BaseDataView from '../views/BaseDataView.vue'
 import PlaceholderView from '../views/PlaceholderView.vue'
 import ProfileView from '../views/ProfileView.vue'
+import UserProjectManageView from '../views/UserProjectManageView.vue'
 
 const routes = [
   {
@@ -42,7 +43,7 @@ const routes = [
       {
         path: 'user-projects',
         name: 'user-projects',
-        component: PlaceholderView,
+        component: UserProjectManageView,
         meta: {
           title: '项目授权管理',
           roles: [ROLE_MANAGER],

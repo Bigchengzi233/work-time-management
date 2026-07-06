@@ -580,6 +580,45 @@ input {
   font-size: 14px;
 }
 
+.table-action-cell .cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.table-panel .el-table__fixed-right,
+.table-panel .el-table__fixed-right-patch {
+  background: var(--color-surface);
+  box-shadow: -8px 0 12px rgba(0, 0, 0, 0.04);
+}
+
+.table-panel .el-table__fixed-right .el-table__cell {
+  background: var(--color-surface);
+}
+
+.table-panel .el-table__fixed-right .el-table__body tr.hover-row > td.el-table__cell {
+  background: #f7fbff;
+}
+
+.table-panel .el-table .el-table__cell.el-table-fixed-column--right,
+.table-panel .el-table .el-table__cell.is-fixed-right {
+  z-index: 3;
+  background: var(--color-surface) !important;
+  box-shadow: -8px 0 12px rgba(0, 0, 0, 0.04);
+}
+
+.table-panel .el-table .el-table__header-wrapper .el-table__cell.el-table-fixed-column--right,
+.table-panel .el-table .el-table__header-wrapper .el-table__cell.is-fixed-right {
+  z-index: 4;
+  background: var(--color-canvas-soft) !important;
+}
+
+.table-panel .el-table .el-table__body tr.hover-row > .el-table__cell.el-table-fixed-column--right,
+.table-panel .el-table .el-table__body tr.hover-row > .el-table__cell.is-fixed-right {
+  background: #f7fbff !important;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

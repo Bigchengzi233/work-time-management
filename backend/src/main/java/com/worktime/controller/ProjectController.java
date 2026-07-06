@@ -2,6 +2,8 @@ package com.worktime.controller;
 
 import com.worktime.common.ApiResponse;
 import com.worktime.common.AuthUtil;
+import com.worktime.common.CurrentUser;
+import com.worktime.common.RoleConstants;
 import com.worktime.dto.ProjectCreateDTO;
 import com.worktime.dto.ProjectUpdateDTO;
 import com.worktime.service.ProjectService;
@@ -33,8 +35,16 @@ public class ProjectController {
     // 查询全部项目，对应 GET /api/projects。
     @GetMapping
     public ApiResponse<List<ProjectVO>> listProjects() {
-        AuthUtil.requireAdmin();
-        return ApiResponse.success(projectService.listProjects());
+        CurrentUser currentUser = AuthUtil.requireAdminOrManager();
+        List<ProjectVO> projects = projectService.listProjects();
+
+        if (RoleConstants.MANAGER.equals(currentUser.getUserRole())) {
+            projects = projects.stream()
+                    .filter(project -> currentUser.getDeptId().equals(project.getDeptId()))
+                    .toList();
+        }
+
+        return ApiResponse.success(projects);
     }
 
     // 根据项目编号查询单个项目，对应 GET /api/projects/{projectId}。

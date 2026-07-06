@@ -2,6 +2,8 @@ package com.worktime.controller;
 
 import com.worktime.common.ApiResponse;
 import com.worktime.common.AuthUtil;
+import com.worktime.common.CurrentUser;
+import com.worktime.common.RoleConstants;
 import com.worktime.dto.UserCreateDTO;
 import com.worktime.dto.UserUpdateDTO;
 import com.worktime.service.UserService;
@@ -33,8 +35,17 @@ public class UserController {
     // 查询全部用户，对应 GET /api/users。
     @GetMapping
     public ApiResponse<List<UserVO>> listUsers() {
-        AuthUtil.requireAdmin();
-        return ApiResponse.success(userService.listUsers());
+        CurrentUser currentUser = AuthUtil.requireAdminOrManager();
+        List<UserVO> users = userService.listUsers();
+
+        if (RoleConstants.MANAGER.equals(currentUser.getUserRole())) {
+            users = users.stream()
+                    .filter(user -> currentUser.getDeptId().equals(user.getDeptId()))
+                    .filter(user -> RoleConstants.EMPLOYEE.equals(user.getUserRole()))
+                    .toList();
+        }
+
+        return ApiResponse.success(users);
     }
 
     // 根据用户编号查询单个用户，对应 GET /api/users/{userId}。

@@ -35,6 +35,16 @@ public class AuthUtil {
         return currentUser;
     }
 
+    // 校验当前用户必须是管理员或部门经理。
+    public static CurrentUser requireAdminOrManager() {
+        CurrentUser currentUser = currentUser();
+        if (!RoleConstants.ADMIN.equals(currentUser.getUserRole())
+                && !RoleConstants.MANAGER.equals(currentUser.getUserRole())) {
+            throw new BusinessException(403, "只有管理员或部门经理可以执行该操作");
+        }
+        return currentUser;
+    }
+
     // 校验当前用户必须是普通员工。
     public static CurrentUser requireEmployee() {
         CurrentUser currentUser = currentUser();
