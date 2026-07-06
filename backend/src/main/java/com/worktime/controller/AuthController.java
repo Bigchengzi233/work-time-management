@@ -5,6 +5,8 @@ import com.worktime.common.AuthContext;
 import com.worktime.common.CurrentUser;
 import com.worktime.dto.LoginDTO;
 import com.worktime.service.AuthService;
+import com.worktime.service.CaptchaService;
+import com.worktime.vo.CaptchaVO;
 import com.worktime.vo.LoginVO;
 import com.worktime.vo.UserVO;
 import jakarta.validation.Valid;
@@ -22,8 +24,18 @@ public class AuthController {
     // 登录业务对象。
     private final AuthService authService;
 
-    public AuthController(AuthService authService) {
+    // 验证码业务对象。
+    private final CaptchaService captchaService;
+
+    public AuthController(AuthService authService, CaptchaService captchaService) {
         this.authService = authService;
+        this.captchaService = captchaService;
+    }
+
+    // 获取登录验证码，对应 GET /api/auth/captcha。
+    @GetMapping("/captcha")
+    public ApiResponse<CaptchaVO> getCaptcha() {
+        return ApiResponse.success(captchaService.createCaptcha());
     }
 
     // 用户登录，对应 POST /api/auth/login。

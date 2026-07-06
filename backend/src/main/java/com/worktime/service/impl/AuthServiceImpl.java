@@ -5,6 +5,7 @@ import com.worktime.common.TokenUtil;
 import com.worktime.exception.BusinessException;
 import com.worktime.mapper.UserMapper;
 import com.worktime.service.AuthService;
+import com.worktime.service.CaptchaService;
 import com.worktime.vo.LoginVO;
 import com.worktime.vo.UserRowVO;
 import com.worktime.vo.UserVO;
@@ -24,15 +25,25 @@ public class AuthServiceImpl implements AuthService {
     // token 工具对象。
     private final TokenUtil tokenUtil;
 
-    public AuthServiceImpl(UserMapper userMapper, PasswordEncoder passwordEncoder, TokenUtil tokenUtil) {
+    // 验证码业务对象。
+    private final CaptchaService captchaService;
+
+    public AuthServiceImpl(
+            UserMapper userMapper,
+            PasswordEncoder passwordEncoder,
+            TokenUtil tokenUtil,
+            CaptchaService captchaService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.tokenUtil = tokenUtil;
+        this.captchaService = captchaService;
     }
 
     // 用户登录。
     @Override
     public LoginVO login(LoginDTO loginDTO) {
+        captchaService.validateCaptcha(loginDTO.getCaptchaId(), loginDTO.getCaptchaCode());
+
         String phone = loginDTO.getPhone().trim();
         String password = loginDTO.getPassword();
 

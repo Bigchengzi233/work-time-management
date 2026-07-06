@@ -42,6 +42,23 @@
             />
           </el-form-item>
 
+          <el-form-item prop="captchaCode">
+            <div class="captcha-row">
+              <el-input
+                v-model.trim="form.captchaCode"
+                :prefix-icon="Key"
+                maxlength="4"
+                placeholder="验证码"
+                @keyup.enter="handleLogin"
+              />
+              <button class="captcha-box" type="button" :disabled="captchaLoading" @click="loadCaptcha">
+                <img v-if="captchaImage" :src="captchaImage" alt="验证码" />
+                <span v-else>刷新验证码</span>
+                <el-icon><Refresh /></el-icon>
+              </button>
+            </div>
+          </el-form-item>
+
           <el-button class="login-button" type="primary" :loading="loading" @click="handleLogin">
             登录
           </el-button>
@@ -52,21 +69,26 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Iphone, Lock } from '@element-plus/icons-vue'
+import { Iphone, Key, Lock, Refresh } from '@element-plus/icons-vue'
+import { getCaptchaApi } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const loginFormRef = ref()
 const loading = ref(false)
+const captchaLoading = ref(false)
+const captchaImage = ref('')
 
 // 登录表单数据：字段名必须和后端 LoginDTO 保持一致。
 const form = reactive({
   phone: '',
   password: '',
+  captchaId: '',
+  captchaCode: '',
 })
 
 // 前端基础校验：后端还会再校验一次，不能只依赖前端。
@@ -79,9 +101,35 @@ const rules = {
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, max: 50, message: '密码长度应为 6 到 50 个字符', trigger: 'blur' },
   ],
+  captchaCode: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { pattern: /^[A-Za-z0-9]+$/, message: '验证码只能填写数字或字母', trigger: 'blur' },
+  ],
+}
+
+onMounted(() => {
+  loadCaptcha()
+})
+
+async function loadCaptcha() {
+  captchaLoading.value = true
+
+  try {
+    const captcha = await getCaptchaApi()
+    form.captchaId = captcha.captchaId
+    form.captchaCode = ''
+    captchaImage.value = captcha.captchaImage
+    loginFormRef.value?.clearValidate('captchaCode')
+  } finally {
+    captchaLoading.value = false
+  }
 }
 
 async function handleLogin() {
+  if (!form.captchaId) {
+    await loadCaptcha()
+  }
+
   try {
     await loginFormRef.value.validate()
   } catch {
@@ -93,6 +141,8 @@ async function handleLogin() {
     await authStore.login(form)
     ElMessage.success('登录成功')
     router.push('/')
+  } catch {
+    await loadCaptcha()
   } finally {
     loading.value = false
   }
