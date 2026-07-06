@@ -5,6 +5,11 @@ export function listWorkTimesByUserIdApi(userId) {
   return request.get(`/work-times/users/${userId}`)
 }
 
+// 根据部门经理编号查询待审批工时报单：对应后端 GET /api/work-times/pending/managers/{managerId}。
+export function listPendingWorkTimesByManagerIdApi(managerId) {
+  return request.get(`/work-times/pending/managers/${managerId}`)
+}
+
 // 新增工时草稿：对应后端 POST /api/work-times。
 export function createWorkTimeApi(data) {
   return request.post('/work-times', data)
@@ -18,6 +23,16 @@ export function updateWorkTimeApi(workId, data) {
 // 提交工时审批：对应后端 POST /api/work-times/{workId}/submit。
 export function submitWorkTimeApi(workId) {
   return request.post(`/work-times/${workId}/submit`)
+}
+
+// 部门经理审批通过工时：对应后端 POST /api/work-times/{workId}/approve。
+export function approveWorkTimeApi(workId, data) {
+  return request.post(`/work-times/${workId}/approve`, data)
+}
+
+// 部门经理驳回工时：对应后端 POST /api/work-times/{workId}/reject。
+export function rejectWorkTimeApi(workId, data) {
+  return request.post(`/work-times/${workId}/reject`, data)
 }
 
 // 删除工时草稿或已驳回工时：对应后端 DELETE /api/work-times/{workId}?userId={userId}。

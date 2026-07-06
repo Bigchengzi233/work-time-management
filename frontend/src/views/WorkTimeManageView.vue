@@ -1,11 +1,104 @@
 <template>
-  <section v-if="authStore.userRole !== ROLE_EMPLOYEE" class="surface-panel placeholder-panel">
-    <span class="card-eyebrow">工时管理</span>
-    <h2>经理审批功能待接入</h2>
-    <p>当前阶段先完成员工工时填报。部门经理审批页面会在下一阶段实现。</p>
+  <section v-if="authStore.userRole === ROLE_MANAGER" class="management-page">
+    <div class="management-header">
+      <div>
+        <span class="card-eyebrow">工时审批</span>
+        <h2>待审批工时</h2>
+        <p>查看本部门员工提交的工时申报单，并执行审批通过或驳回。</p>
+      </div>
+
+      <el-button :icon="Refresh" @click="loadPageData">
+        刷新列表
+      </el-button>
+    </div>
+
+    <div class="surface-panel table-panel">
+      <el-table v-loading="loading" :data="pendingWorkTimeList" border stripe empty-text="暂无待审批工时">
+        <el-table-column prop="workId" label="工时编号" width="110" />
+        <el-table-column prop="userName" label="员工姓名" width="120" />
+        <el-table-column prop="userDeptName" label="员工部门" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="projectName" label="项目名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="workDate" label="工作日期" width="130" />
+        <el-table-column prop="workHours" label="工时数" width="100" />
+        <el-table-column prop="workDesc" label="工作描述" min-width="220" show-overflow-tooltip />
+        <el-table-column label="状态" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getStatusTagType(row.status)" effect="plain">
+              {{ getStatusText(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="190" fixed="right" class-name="table-action-cell">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="openApproveDialog(row)">
+              审批通过
+            </el-button>
+            <el-button link type="danger" @click="openRejectDialog(row)">
+              驳回
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <el-dialog v-model="approvalDialogVisible" :title="approvalDialogTitle" width="580px" destroy-on-close>
+      <el-form ref="approvalFormRef" :model="approvalForm" :rules="approvalRules" label-width="86px">
+        <div v-if="activeWorkTime" class="approval-summary">
+          <div>
+            <span>员工</span>
+            <strong>{{ activeWorkTime.userName }}</strong>
+          </div>
+          <div>
+            <span>项目</span>
+            <strong>{{ activeWorkTime.projectName }}</strong>
+          </div>
+          <div>
+            <span>日期</span>
+            <strong>{{ activeWorkTime.workDate }}</strong>
+          </div>
+          <div>
+            <span>工时</span>
+            <strong>{{ activeWorkTime.workHours }}</strong>
+          </div>
+        </div>
+
+        <el-form-item v-if="approvalMode === 'approve'" label="审批说明" prop="operationDesc">
+          <el-input
+            v-model.trim="approvalForm.operationDesc"
+            type="textarea"
+            maxlength="500"
+            :rows="4"
+            placeholder="可填写审批说明，也可以留空"
+            show-word-limit
+          />
+        </el-form-item>
+
+        <el-form-item v-else label="驳回原因" prop="rejectReason">
+          <el-input
+            v-model.trim="approvalForm.rejectReason"
+            type="textarea"
+            maxlength="500"
+            :rows="4"
+            placeholder="请输入驳回原因，方便员工修改后重新提交"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="approvalDialogVisible = false">取消</el-button>
+        <el-button
+          :type="approvalMode === 'approve' ? 'primary' : 'danger'"
+          :loading="approvalLoading"
+          @click="handleApprovalSave"
+        >
+          {{ approvalMode === 'approve' ? '确认通过' : '确认驳回' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 
-  <section v-else class="management-page">
+  <section v-else-if="authStore.userRole === ROLE_EMPLOYEE" class="management-page">
     <div class="management-header">
       <div>
         <span class="card-eyebrow">工时管理</span>
@@ -104,22 +197,31 @@
       </template>
     </el-dialog>
   </section>
+
+  <section v-else class="surface-panel placeholder-panel">
+    <span class="card-eyebrow">工时管理</span>
+    <h2>暂无可用功能</h2>
+    <p>当前角色暂时没有工时管理操作入口。</p>
+  </section>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Refresh } from '@element-plus/icons-vue'
 import { listUserProjectsByUserIdApi } from '../api/userProjects'
 import {
+  approveWorkTimeApi,
   createWorkTimeApi,
   deleteWorkTimeApi,
+  listPendingWorkTimesByManagerIdApi,
   listWorkTimesByUserIdApi,
+  rejectWorkTimeApi,
   submitWorkTimeApi,
   updateWorkTimeApi,
 } from '../api/workTimes'
 import { useAuthStore } from '../stores/auth'
-import { ROLE_EMPLOYEE } from '../utils/role'
+import { ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
 
 const STATUS_DRAFT = 0
 const STATUS_PENDING = 1
@@ -129,11 +231,17 @@ const STATUS_REJECTED = 3
 const authStore = useAuthStore()
 const loading = ref(false)
 const submitLoading = ref(false)
+const approvalLoading = ref(false)
 const dialogVisible = ref(false)
+const approvalDialogVisible = ref(false)
 const formRef = ref()
+const approvalFormRef = ref()
 const workTimeList = ref([])
+const pendingWorkTimeList = ref([])
 const userProjectList = ref([])
 const editingWorkId = ref(null)
+const activeWorkTime = ref(null)
+const approvalMode = ref('approve')
 
 // 表单数据：字段名和后端 WorkTimeCreateDTO / WorkTimeUpdateDTO 保持一致。
 const form = reactive({
@@ -141,6 +249,12 @@ const form = reactive({
   workDate: '',
   workHours: 8,
   workDesc: '',
+})
+
+// 审批表单：通过时传 operationDesc，驳回时传 rejectReason。
+const approvalForm = reactive({
+  operationDesc: '',
+  rejectReason: '',
 })
 
 const rules = {
@@ -153,7 +267,16 @@ const rules = {
   workDesc: [{ max: 500, message: '工作描述不能超过 500 个字符', trigger: 'blur' }],
 }
 
+const approvalRules = {
+  operationDesc: [{ max: 500, message: '审批说明不能超过 500 个字符', trigger: 'blur' }],
+  rejectReason: [
+    { required: true, message: '请输入驳回原因', trigger: 'blur' },
+    { max: 500, message: '驳回原因不能超过 500 个字符', trigger: 'blur' },
+  ],
+}
+
 const dialogTitle = computed(() => (editingWorkId.value ? '编辑工时' : '新增工时'))
+const approvalDialogTitle = computed(() => (approvalMode.value === 'approve' ? '审批通过' : '驳回工时'))
 
 // 项目下拉框：只展示当前员工有效授权且项目启用的项目。
 const projectOptions = computed(() =>
@@ -166,7 +289,7 @@ const projectOptions = computed(() =>
 )
 
 onMounted(() => {
-  if (authStore.userRole === ROLE_EMPLOYEE) {
+  if (authStore.userRole === ROLE_EMPLOYEE || authStore.userRole === ROLE_MANAGER) {
     loadPageData()
   }
 })
@@ -175,6 +298,12 @@ async function loadPageData() {
   loading.value = true
 
   try {
+    if (authStore.userRole === ROLE_MANAGER) {
+      const managerId = authStore.user.userId
+      pendingWorkTimeList.value = await listPendingWorkTimesByManagerIdApi(managerId)
+      return
+    }
+
     const userId = authStore.user.userId
     const [workTimes, userProjects] = await Promise.all([
       listWorkTimesByUserIdApi(userId),
@@ -196,6 +325,12 @@ function resetForm() {
   formRef.value?.clearValidate()
 }
 
+function resetApprovalForm() {
+  approvalForm.operationDesc = ''
+  approvalForm.rejectReason = ''
+  approvalFormRef.value?.clearValidate()
+}
+
 function openCreateDialog() {
   resetForm()
   dialogVisible.value = true
@@ -208,6 +343,20 @@ function openEditDialog(row) {
   form.workHours = Number(row.workHours)
   form.workDesc = row.workDesc || ''
   dialogVisible.value = true
+}
+
+function openApproveDialog(row) {
+  activeWorkTime.value = row
+  approvalMode.value = 'approve'
+  resetApprovalForm()
+  approvalDialogVisible.value = true
+}
+
+function openRejectDialog(row) {
+  activeWorkTime.value = row
+  approvalMode.value = 'reject'
+  resetApprovalForm()
+  approvalDialogVisible.value = true
 }
 
 async function handleSave() {
@@ -240,6 +389,32 @@ async function handleSave() {
     await loadPageData()
   } finally {
     submitLoading.value = false
+  }
+}
+
+async function handleApprovalSave() {
+  await approvalFormRef.value.validate()
+  approvalLoading.value = true
+
+  try {
+    if (approvalMode.value === 'approve') {
+      await approveWorkTimeApi(activeWorkTime.value.workId, {
+        managerId: authStore.user.userId,
+        operationDesc: approvalForm.operationDesc,
+      })
+      ElMessage.success('工时已审批通过')
+    } else {
+      await rejectWorkTimeApi(activeWorkTime.value.workId, {
+        managerId: authStore.user.userId,
+        rejectReason: approvalForm.rejectReason,
+      })
+      ElMessage.success('工时已驳回')
+    }
+
+    approvalDialogVisible.value = false
+    await loadPageData()
+  } finally {
+    approvalLoading.value = false
   }
 }
 
