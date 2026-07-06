@@ -24,8 +24,10 @@
 html,
 body,
 #app {
-  min-height: 100%;
+  width: 100%;
+  height: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 body {
@@ -183,19 +185,21 @@ input {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 256px minmax(0, 1fr);
   background: var(--color-canvas-soft);
+  overflow: hidden;
 }
 
 .sidebar {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   padding: 18px 14px;
   border-right: 1px solid var(--color-hairline);
   background: var(--color-surface);
+  overflow: hidden;
 }
 
 .brand {
@@ -269,11 +273,14 @@ input {
 
 .main-area {
   min-width: 0;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .topbar {
+  flex: none;
   min-height: 76px;
   display: flex;
   align-items: center;
@@ -338,8 +345,12 @@ input {
 
 .content-area {
   width: 100%;
-  max-width: 1180px;
+  max-width: none;
+  min-height: 0;
+  flex: 1;
   padding: 28px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .workspace-hero {
@@ -494,6 +505,28 @@ input {
   gap: 18px;
 }
 
+.base-data-page {
+  display: grid;
+  gap: 18px;
+}
+
+.tabs-panel {
+  padding-top: 14px;
+}
+
+.base-data-tabs .el-tabs__header {
+  margin-bottom: 18px;
+}
+
+.base-data-tabs .el-tabs__item {
+  color: var(--color-ink-muted);
+  font-weight: 600;
+}
+
+.base-data-tabs .el-tabs__item.is-active {
+  color: var(--color-primary);
+}
+
 .management-header {
   display: flex;
   align-items: flex-end;
@@ -503,6 +536,15 @@ input {
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-xl);
   background: var(--color-surface);
+}
+
+.nested-management-page .management-header {
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfa 100%);
+}
+
+.compact-management-header {
+  padding: 20px;
 }
 
 .management-header h2 {
@@ -538,6 +580,16 @@ input {
   font-size: 14px;
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
+.form-grid .el-select {
+  width: 100%;
+}
+
 .placeholder-panel {
   max-width: 760px;
 }
@@ -568,7 +620,8 @@ input {
 @media (max-width: 980px) {
   .login-shell,
   .app-shell,
-  .dashboard-layout {
+  .dashboard-layout,
+  .form-grid {
     grid-template-columns: 1fr;
   }
 

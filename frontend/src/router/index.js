@@ -4,7 +4,7 @@ import { ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
 import LoginView from '../views/LoginView.vue'
 import MainLayout from '../views/MainLayout.vue'
 import DashboardView from '../views/DashboardView.vue'
-import DepartmentManageView from '../views/DepartmentManageView.vue'
+import BaseDataView from '../views/BaseDataView.vue'
 import PlaceholderView from '../views/PlaceholderView.vue'
 import ProfileView from '../views/ProfileView.vue'
 
@@ -33,7 +33,7 @@ const routes = [
       {
         path: 'base-data',
         name: 'base-data',
-        component: DepartmentManageView,
+        component: BaseDataView,
         meta: {
           title: '基础数据管理',
           roles: [ROLE_ADMIN],

@@ -1,6 +1,6 @@
 <template>
-  <section class="management-page">
-    <div class="management-header">
+  <section class="management-page nested-management-page">
+    <div class="management-header compact-management-header">
       <div>
         <span class="card-eyebrow">基础数据</span>
         <h2>部门管理</h2>
