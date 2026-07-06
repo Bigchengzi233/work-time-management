@@ -4,7 +4,6 @@
       <div>
         <span class="card-eyebrow">工时审批</span>
         <h2>待审批工时</h2>
-        <p>查看本部门员工提交的工时申报单，并执行审批通过或驳回。</p>
       </div>
 
       <el-button :icon="Refresh" @click="loadPageData">
@@ -13,7 +12,52 @@
     </div>
 
     <div class="surface-panel table-panel">
-      <el-table v-loading="loading" :data="pendingWorkTimeList" border stripe empty-text="暂无待审批工时">
+      <div class="list-filter-bar">
+        <el-input
+          v-model.trim="managerQueryForm.keyword"
+          class="list-filter-input"
+          clearable
+          placeholder="搜索员工、项目或描述"
+          @input="resetCurrentPage"
+          @clear="resetCurrentPage"
+        />
+      </div>
+
+      <div class="table-toolbar batch-toolbar">
+        <span>共 {{ filteredPendingWorkTimeList.length }} 条待审批</span>
+        <div>
+          <el-button :disabled="selectedWorkTimeList.length === 0" @click="clearSelection">
+            清除选择
+          </el-button>
+          <el-button
+            type="primary"
+            :disabled="selectedWorkTimeList.length === 0"
+            @click="openBatchDialog('approve')"
+          >
+            批量通过
+          </el-button>
+          <el-button
+            type="danger"
+            :disabled="selectedWorkTimeList.length === 0"
+            @click="openBatchDialog('reject')"
+          >
+            批量驳回
+          </el-button>
+        </div>
+        <strong v-if="selectedWorkTimeList.length > 0">已选 {{ selectedWorkTimeList.length }} 条</strong>
+      </div>
+
+      <el-table
+        ref="pendingTableRef"
+        v-loading="loading"
+        :data="pagedPendingWorkTimeList"
+        border
+        stripe
+        row-key="workId"
+        empty-text="暂无待审批工时"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="workId" label="工时编号" width="110" />
         <el-table-column prop="userName" label="员工姓名" width="120" />
         <el-table-column prop="userDeptName" label="员工部门" min-width="150" show-overflow-tooltip />
@@ -28,7 +72,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right" class-name="table-action-cell">
+        <el-table-column label="操作" min-width="250" fixed="right" class-name="table-action-cell">
           <template #default="{ row }">
             <el-button link type="primary" @click="openApproveDialog(row)">
               审批通过
@@ -42,6 +86,17 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-bar">
+        <el-pagination
+          v-model:current-page="pagination.currentPage"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[5, 10, 20, 50]"
+          :total="filteredPendingWorkTimeList.length"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </div>
 
     <el-dialog v-model="approvalDialogVisible" :title="approvalDialogTitle" width="580px" destroy-on-close>
@@ -99,6 +154,54 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="batchDialogVisible" :title="batchDialogTitle" width="580px" destroy-on-close>
+      <el-form ref="batchFormRef" :model="batchForm" :rules="batchRules" label-width="86px">
+        <div class="approval-summary">
+          <div>
+            <span>已选数量</span>
+            <strong>{{ selectedWorkTimeList.length }} 条</strong>
+          </div>
+          <div>
+            <span>审批人</span>
+            <strong>{{ authStore.user?.userName || '-' }}</strong>
+          </div>
+        </div>
+
+        <el-form-item v-if="batchMode === 'approve'" label="审批说明" prop="operationDesc">
+          <el-input
+            v-model.trim="batchForm.operationDesc"
+            type="textarea"
+            maxlength="500"
+            :rows="4"
+            placeholder="可填写统一审批说明，也可以留空"
+            show-word-limit
+          />
+        </el-form-item>
+
+        <el-form-item v-else label="驳回原因" prop="rejectReason">
+          <el-input
+            v-model.trim="batchForm.rejectReason"
+            type="textarea"
+            maxlength="500"
+            :rows="4"
+            placeholder="请输入统一驳回原因，所有选中工时都会使用该原因"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="batchDialogVisible = false">取消</el-button>
+        <el-button
+          :type="batchMode === 'approve' ? 'primary' : 'danger'"
+          :loading="batchLoading"
+          @click="handleBatchSave"
+        >
+          {{ batchMode === 'approve' ? '确认批量通过' : '确认批量驳回' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 
   <section v-else-if="authStore.userRole === ROLE_EMPLOYEE" class="management-page">
@@ -106,7 +209,6 @@
       <div>
         <span class="card-eyebrow">工时管理</span>
         <h2>我的工时</h2>
-        <p>填报本人已授权项目的每日工时，并提交给部门经理审批。</p>
       </div>
 
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">
@@ -115,7 +217,53 @@
     </div>
 
     <div class="surface-panel table-panel">
-      <el-table v-loading="loading" :data="workTimeList" border stripe empty-text="暂无工时数据">
+      <div class="list-filter-bar">
+        <el-select
+          v-model="employeeQueryForm.projectId"
+          class="list-filter-select"
+          clearable
+          filterable
+          placeholder="全部项目"
+          @change="resetCurrentPage"
+          @clear="resetCurrentPage"
+        >
+          <el-option
+            v-for="project in projectOptions"
+            :key="project.projectId"
+            :label="project.projectName"
+            :value="project.projectId"
+          />
+        </el-select>
+        <el-select
+          v-model="employeeQueryForm.status"
+          class="list-filter-select"
+          clearable
+          placeholder="全部状态"
+          @change="resetCurrentPage"
+          @clear="resetCurrentPage"
+        >
+          <el-option label="草稿" :value="STATUS_DRAFT" />
+          <el-option label="待审批" :value="STATUS_PENDING" />
+          <el-option label="审批通过" :value="STATUS_APPROVED" />
+          <el-option label="已驳回" :value="STATUS_REJECTED" />
+        </el-select>
+        <el-date-picker
+          v-model="employeeQueryForm.dateRange"
+          class="list-filter-date"
+          type="daterange"
+          value-format="YYYY-MM-DD"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          range-separator="至"
+          @change="resetCurrentPage"
+        />
+      </div>
+
+      <div class="table-toolbar">
+        <span>共 {{ filteredWorkTimeList.length }} 条工时记录</span>
+      </div>
+
+      <el-table v-loading="loading" :data="pagedWorkTimeList" border stripe empty-text="暂无工时数据">
         <el-table-column prop="workId" label="工时编号" width="110" />
         <el-table-column prop="projectName" label="项目名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="workDate" label="工作日期" width="130" />
@@ -128,7 +276,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="290" fixed="right" class-name="table-action-cell">
+        <el-table-column label="操作" min-width="310" fixed="right" class-name="table-action-cell">
           <template #default="{ row }">
             <el-button link type="primary" :disabled="!canEdit(row)" @click="openEditDialog(row)">
               编辑
@@ -145,6 +293,17 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-bar">
+        <el-pagination
+          v-model:current-page="pagination.currentPage"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[5, 10, 20, 50]"
+          :total="filteredWorkTimeList.length"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="640px" destroy-on-close>
@@ -268,6 +427,7 @@ import {
 } from '../api/workTimes'
 import { useAuthStore } from '../stores/auth'
 import { ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
+import { normalizeSearchText, paginateList } from '../utils/table'
 
 const STATUS_DRAFT = 0
 const STATUS_PENDING = 1
@@ -278,20 +438,38 @@ const authStore = useAuthStore()
 const loading = ref(false)
 const submitLoading = ref(false)
 const approvalLoading = ref(false)
+const batchLoading = ref(false)
 const logLoading = ref(false)
 const dialogVisible = ref(false)
 const approvalDialogVisible = ref(false)
+const batchDialogVisible = ref(false)
 const logDialogVisible = ref(false)
 const formRef = ref()
 const approvalFormRef = ref()
+const batchFormRef = ref()
+const pendingTableRef = ref()
 const workTimeList = ref([])
 const pendingWorkTimeList = ref([])
+const selectedWorkTimeList = ref([])
 const logList = ref([])
 const userProjectList = ref([])
 const editingWorkId = ref(null)
 const activeWorkTime = ref(null)
 const activeLogWorkTime = ref(null)
 const approvalMode = ref('approve')
+const batchMode = ref('approve')
+const managerQueryForm = reactive({
+  keyword: '',
+})
+const employeeQueryForm = reactive({
+  projectId: null,
+  status: null,
+  dateRange: [],
+})
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+})
 
 // 表单数据：字段名和后端 WorkTimeCreateDTO / WorkTimeUpdateDTO 保持一致。
 const form = reactive({
@@ -303,6 +481,12 @@ const form = reactive({
 
 // 审批表单：通过时传 operationDesc，驳回时传 rejectReason。
 const approvalForm = reactive({
+  operationDesc: '',
+  rejectReason: '',
+})
+
+// 批量审批表单：前端复用单条审批接口，逐条发送相同审批说明或驳回原因。
+const batchForm = reactive({
   operationDesc: '',
   rejectReason: '',
 })
@@ -325,8 +509,44 @@ const approvalRules = {
   ],
 }
 
+const batchRules = {
+  operationDesc: [{ max: 500, message: '审批说明不能超过 500 个字符', trigger: 'blur' }],
+  rejectReason: [
+    { required: true, message: '请输入驳回原因', trigger: 'blur' },
+    { max: 500, message: '驳回原因不能超过 500 个字符', trigger: 'blur' },
+  ],
+}
+
 const dialogTitle = computed(() => (editingWorkId.value ? '编辑工时' : '新增工时'))
 const approvalDialogTitle = computed(() => (approvalMode.value === 'approve' ? '审批通过' : '驳回工时'))
+const batchDialogTitle = computed(() => (batchMode.value === 'approve' ? '批量通过工时' : '批量驳回工时'))
+const filteredPendingWorkTimeList = computed(() => {
+  const keyword = normalizeSearchText(managerQueryForm.keyword)
+
+  if (!keyword) {
+    return pendingWorkTimeList.value
+  }
+
+  return pendingWorkTimeList.value.filter((item) =>
+    [item.workId, item.userName, item.userDeptName, item.projectName, item.workDesc]
+      .some((value) => normalizeSearchText(value).includes(keyword)),
+  )
+})
+const filteredWorkTimeList = computed(() =>
+  workTimeList.value.filter((item) => {
+    const [startDate, endDate] = employeeQueryForm.dateRange || []
+    const matchProject = !employeeQueryForm.projectId || item.projectId === employeeQueryForm.projectId
+    const matchStatus = employeeQueryForm.status === null || item.status === employeeQueryForm.status
+    const matchDate = !startDate || !endDate || (item.workDate >= startDate && item.workDate <= endDate)
+    return matchProject && matchStatus && matchDate
+  }),
+)
+const pagedPendingWorkTimeList = computed(() =>
+  paginateList(filteredPendingWorkTimeList.value, pagination.currentPage, pagination.pageSize),
+)
+const pagedWorkTimeList = computed(() =>
+  paginateList(filteredWorkTimeList.value, pagination.currentPage, pagination.pageSize),
+)
 
 // 项目下拉框：只展示当前员工有效授权且项目启用的项目。
 const projectOptions = computed(() =>
@@ -351,6 +571,7 @@ async function loadPageData() {
     if (authStore.userRole === ROLE_MANAGER) {
       const managerId = authStore.user.userId
       pendingWorkTimeList.value = await listPendingWorkTimesByManagerIdApi(managerId)
+      selectedWorkTimeList.value = []
       return
     }
 
@@ -366,6 +587,10 @@ async function loadPageData() {
   }
 }
 
+function resetCurrentPage() {
+  pagination.currentPage = 1
+}
+
 function resetForm() {
   editingWorkId.value = null
   form.projectId = null
@@ -379,6 +604,12 @@ function resetApprovalForm() {
   approvalForm.operationDesc = ''
   approvalForm.rejectReason = ''
   approvalFormRef.value?.clearValidate()
+}
+
+function resetBatchForm() {
+  batchForm.operationDesc = ''
+  batchForm.rejectReason = ''
+  batchFormRef.value?.clearValidate()
 }
 
 function openCreateDialog() {
@@ -407,6 +638,26 @@ function openRejectDialog(row) {
   approvalMode.value = 'reject'
   resetApprovalForm()
   approvalDialogVisible.value = true
+}
+
+function handleSelectionChange(selection) {
+  selectedWorkTimeList.value = selection
+}
+
+function clearSelection() {
+  pendingTableRef.value?.clearSelection()
+  selectedWorkTimeList.value = []
+}
+
+function openBatchDialog(mode) {
+  if (selectedWorkTimeList.value.length === 0) {
+    ElMessage.warning('请先选择需要审批的工时')
+    return
+  }
+
+  batchMode.value = mode
+  resetBatchForm()
+  batchDialogVisible.value = true
 }
 
 async function openLogDialog(row) {
@@ -477,6 +728,44 @@ async function handleApprovalSave() {
     await loadPageData()
   } finally {
     approvalLoading.value = false
+  }
+}
+
+async function handleBatchSave() {
+  await batchFormRef.value.validate()
+  batchLoading.value = true
+
+  try {
+    const managerId = authStore.user.userId
+
+    if (batchMode.value === 'approve') {
+      // 当前后端没有批量接口，所以这里并发调用单条审批接口，保持后端业务校验不变。
+      await Promise.all(
+        selectedWorkTimeList.value.map((item) =>
+          approveWorkTimeApi(item.workId, {
+            managerId,
+            operationDesc: batchForm.operationDesc,
+          }),
+        ),
+      )
+      ElMessage.success(`${selectedWorkTimeList.value.length} 条工时已批量通过`)
+    } else {
+      await Promise.all(
+        selectedWorkTimeList.value.map((item) =>
+          rejectWorkTimeApi(item.workId, {
+            managerId,
+            rejectReason: batchForm.rejectReason,
+          }),
+        ),
+      )
+      ElMessage.success(`${selectedWorkTimeList.value.length} 条工时已批量驳回`)
+    }
+
+    batchDialogVisible.value = false
+    clearSelection()
+    await loadPageData()
+  } finally {
+    batchLoading.value = false
   }
 }
 

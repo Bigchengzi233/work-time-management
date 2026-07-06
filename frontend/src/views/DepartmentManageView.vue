@@ -4,7 +4,6 @@
       <div>
         <span class="card-eyebrow">基础数据</span>
         <h2>部门管理</h2>
-        <p>维护系统中的部门基础信息，用户和项目会关联到部门。</p>
       </div>
 
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">
@@ -13,9 +12,24 @@
     </div>
 
     <div class="surface-panel table-panel">
+      <div class="list-filter-bar">
+        <el-input
+          v-model.trim="queryForm.keyword"
+          class="list-filter-input"
+          clearable
+          placeholder="搜索部门编号或名称"
+          @input="resetCurrentPage"
+          @clear="resetCurrentPage"
+        />
+      </div>
+
+      <div class="table-toolbar">
+        <span>共 {{ filteredDepartmentList.length }} 条部门记录</span>
+      </div>
+
       <el-table
         v-loading="loading"
-        :data="departmentList"
+        :data="pagedDepartmentList"
         border
         stripe
         empty-text="暂无部门数据"
@@ -29,6 +43,17 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-bar">
+        <el-pagination
+          v-model:current-page="pagination.currentPage"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[5, 10, 20, 50]"
+          :total="filteredDepartmentList.length"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </div>
 
     <el-dialog
@@ -68,6 +93,7 @@ import {
   listDepartmentsApi,
   updateDepartmentApi,
 } from '../api/departments'
+import { normalizeSearchText, paginateList } from '../utils/table'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -75,6 +101,13 @@ const dialogVisible = ref(false)
 const formRef = ref()
 const departmentList = ref([])
 const editingDeptId = ref(null)
+const queryForm = reactive({
+  keyword: '',
+})
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+})
 
 // 表单数据：字段名和后端 DepartmentCreateDTO / DepartmentUpdateDTO 保持一致。
 const form = reactive({
@@ -90,6 +123,20 @@ const rules = {
 }
 
 const dialogTitle = computed(() => (editingDeptId.value ? '编辑部门' : '新增部门'))
+const filteredDepartmentList = computed(() => {
+  const keyword = normalizeSearchText(queryForm.keyword)
+
+  if (!keyword) {
+    return departmentList.value
+  }
+
+  return departmentList.value.filter((item) =>
+    [item.deptId, item.deptName].some((value) => normalizeSearchText(value).includes(keyword)),
+  )
+})
+const pagedDepartmentList = computed(() =>
+  paginateList(filteredDepartmentList.value, pagination.currentPage, pagination.pageSize),
+)
 
 onMounted(() => {
   loadDepartments()
@@ -103,6 +150,10 @@ async function loadDepartments() {
   } finally {
     loading.value = false
   }
+}
+
+function resetCurrentPage() {
+  pagination.currentPage = 1
 }
 
 function resetForm() {

@@ -30,9 +30,8 @@ request.interceptors.response.use(
     }
 
     if (result.code === 401) {
-      const authStore = useAuthStore()
-      authStore.logout()
-      router.push('/login')
+      handleUnauthorized()
+      return Promise.reject(new Error(result.message || '登录已过期，请重新登录'))
     }
 
     ElMessage.error(result.message || '请求失败')
@@ -40,10 +39,7 @@ request.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      const authStore = useAuthStore()
-      authStore.logout()
-      router.push('/login')
-      ElMessage.error('登录已过期，请重新登录')
+      handleUnauthorized()
       return Promise.reject(error)
     }
 
@@ -51,5 +47,16 @@ request.interceptors.response.use(
     return Promise.reject(error)
   },
 )
+
+function handleUnauthorized() {
+  const authStore = useAuthStore()
+  authStore.logout()
+
+  if (router.currentRoute.value.path !== '/login') {
+    router.push('/login')
+  }
+
+  ElMessage.error('登录已过期，请重新登录')
+}
 
 export default request

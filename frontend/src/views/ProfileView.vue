@@ -4,7 +4,6 @@
       <div>
         <span class="card-eyebrow">个人中心</span>
         <h2>{{ profileData?.userName || authStore.user?.userName }}</h2>
-        <p>查看当前登录账号信息，并维护姓名、邮箱和登录密码。</p>
       </div>
 
       <el-button :icon="Refresh" @click="loadProfile">
@@ -17,7 +16,7 @@
         <span class="card-eyebrow">账号信息</span>
 
         <div class="profile-account-head">
-          <div class="profile-avatar-large">
+          <div class="profile-avatar-large" :class="avatarRoleClass">
             {{ avatarText }}
           </div>
           <div>
@@ -26,24 +25,20 @@
           </div>
         </div>
 
-        <div class="info-list profile-info-list">
-          <div>
-            <span>用户编号</span>
-            <strong>{{ profileData?.userId || '-' }}</strong>
-          </div>
-          <div>
-            <span>手机号</span>
-            <strong>{{ profileData?.phone || '-' }}</strong>
-          </div>
-          <div>
-            <span>职位</span>
-            <strong>{{ getRoleName(authStore.userRole) }}</strong>
-          </div>
-          <div>
-            <span>部门</span>
-            <strong>{{ profileData?.deptName || '暂无' }}</strong>
-          </div>
-        </div>
+        <el-descriptions class="profile-descriptions" :column="1" border>
+          <el-descriptions-item label="用户编号">
+            {{ profileData?.userId || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="手机号">
+            {{ profileData?.phone || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="职位">
+            {{ getRoleName(authStore.userRole) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="部门">
+            {{ profileData?.deptName || '暂无' }}
+          </el-descriptions-item>
+        </el-descriptions>
       </div>
 
       <div class="surface-panel profile-panel">
@@ -119,7 +114,7 @@ import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { getProfileApi, updatePasswordApi, updateProfileApi } from '../api/profile'
 import { useAuthStore } from '../stores/auth'
-import { getRoleName } from '../utils/role'
+import { getRoleName, ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
 
 const authStore = useAuthStore()
 const profileFormRef = ref()
@@ -131,6 +126,16 @@ const profileData = ref(null)
 const avatarText = computed(() => {
   const name = profileData.value?.userName || authStore.user?.userName || '用'
   return name.slice(0, 1)
+})
+
+const avatarRoleClass = computed(() => {
+  const classMap = {
+    [ROLE_ADMIN]: 'profile-avatar-admin',
+    [ROLE_MANAGER]: 'profile-avatar-manager',
+    [ROLE_EMPLOYEE]: 'profile-avatar-employee',
+  }
+
+  return classMap[authStore.userRole] || 'profile-avatar-employee'
 })
 
 // 个人资料表单：当前只允许用户修改姓名和邮箱，手机号、角色、部门仍由管理员维护。

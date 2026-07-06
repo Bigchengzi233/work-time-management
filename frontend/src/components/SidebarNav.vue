@@ -4,7 +4,7 @@
       <div class="brand-mark">工</div>
       <div class="brand-text">
         <div class="brand-title">员工工时管理系统</div>
-        <div class="brand-subtitle">Work Time Console</div>
+        <div class="brand-subtitle">Work Time Management</div>
       </div>
     </div>
 
@@ -35,6 +35,7 @@
         <span>部门：</span>
         <strong>{{ authStore.user?.deptName || '暂无部门' }}</strong>
       </div>
+      <div class="sidebar-version">v1.0.0</div>
     </div>
   </aside>
 </template>

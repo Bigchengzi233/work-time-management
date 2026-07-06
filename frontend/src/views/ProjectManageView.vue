@@ -4,7 +4,6 @@
       <div>
         <span class="card-eyebrow">基础数据</span>
         <h2>项目管理</h2>
-        <p>维护公司项目基础信息，员工授权和工时填报会关联到项目。</p>
       </div>
 
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">
@@ -13,14 +12,62 @@
     </div>
 
     <div class="surface-panel table-panel">
-      <el-table v-loading="loading" :data="projectList" border stripe empty-text="暂无项目数据">
+      <div class="list-filter-bar">
+        <el-input
+          v-model.trim="queryForm.keyword"
+          class="list-filter-input"
+          clearable
+          placeholder="搜索项目编号或名称"
+          @input="resetCurrentPage"
+          @clear="resetCurrentPage"
+        />
+        <el-select
+          v-model="queryForm.projectStatus"
+          class="list-filter-select"
+          clearable
+          placeholder="全部状态"
+          @change="resetCurrentPage"
+          @clear="resetCurrentPage"
+        >
+          <el-option label="启用" :value="1" />
+          <el-option label="禁用" :value="0" />
+        </el-select>
+        <el-select
+          v-model="queryForm.deptId"
+          class="list-filter-select"
+          clearable
+          filterable
+          placeholder="全部部门"
+          @change="resetCurrentPage"
+          @clear="resetCurrentPage"
+        >
+          <el-option
+            v-for="department in departmentList"
+            :key="department.deptId"
+            :label="department.deptName"
+            :value="department.deptId"
+          />
+        </el-select>
+      </div>
+
+      <div class="table-toolbar">
+        <span>共 {{ filteredProjectList.length }} 条项目记录</span>
+      </div>
+
+      <el-table v-loading="loading" :data="pagedProjectList" border stripe empty-text="暂无项目数据">
         <el-table-column prop="projectId" label="项目编号" width="110" />
         <el-table-column prop="projectName" label="项目名称" min-width="220" show-overflow-tooltip />
-        <el-table-column label="项目状态" width="120">
+        <el-table-column label="项目状态" width="130">
           <template #default="{ row }">
-            <el-tag :type="row.projectStatus === 1 ? 'success' : 'info'" effect="plain">
-              {{ getProjectStatusText(row.projectStatus) }}
-            </el-tag>
+            <el-switch
+              v-model="row.projectStatus"
+              :active-value="1"
+              :inactive-value="0"
+              active-text="启用"
+              inactive-text="禁用"
+              inline-prompt
+              @change="handleStatusChange(row)"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="deptName" label="所属部门" min-width="180" />
@@ -31,6 +78,17 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-bar">
+        <el-pagination
+          v-model:current-page="pagination.currentPage"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[5, 10, 20, 50]"
+          :total="filteredProjectList.length"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px" destroy-on-close>
@@ -84,6 +142,7 @@ import {
   listProjectsApi,
   updateProjectApi,
 } from '../api/projects'
+import { normalizeSearchText, paginateList } from '../utils/table'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -92,6 +151,15 @@ const formRef = ref()
 const projectList = ref([])
 const departmentList = ref([])
 const editingProjectId = ref(null)
+const queryForm = reactive({
+  keyword: '',
+  projectStatus: null,
+  deptId: null,
+})
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+})
 
 // 表单数据：字段名和后端 ProjectCreateDTO / ProjectUpdateDTO 保持一致。
 const form = reactive({
@@ -111,6 +179,20 @@ const rules = {
 }
 
 const dialogTitle = computed(() => (editingProjectId.value ? '编辑项目' : '新增项目'))
+const filteredProjectList = computed(() => {
+  const keyword = normalizeSearchText(queryForm.keyword)
+
+  return projectList.value.filter((item) => {
+    const matchKeyword = !keyword || [item.projectId, item.projectName, item.deptName]
+      .some((value) => normalizeSearchText(value).includes(keyword))
+    const matchStatus = queryForm.projectStatus === null || item.projectStatus === queryForm.projectStatus
+    const matchDept = !queryForm.deptId || item.deptId === queryForm.deptId
+    return matchKeyword && matchStatus && matchDept
+  })
+})
+const pagedProjectList = computed(() =>
+  paginateList(filteredProjectList.value, pagination.currentPage, pagination.pageSize),
+)
 
 onMounted(() => {
   loadPageData()
@@ -126,6 +208,10 @@ async function loadPageData() {
   } finally {
     loading.value = false
   }
+}
+
+function resetCurrentPage() {
+  pagination.currentPage = 1
 }
 
 function resetForm() {
@@ -193,6 +279,20 @@ async function handleDelete(row) {
   await deleteProjectApi(row.projectId)
   ElMessage.success('项目删除成功')
   await loadPageData()
+}
+
+async function handleStatusChange(row) {
+  try {
+    await updateProjectApi(row.projectId, {
+      projectName: row.projectName,
+      projectStatus: row.projectStatus,
+      deptId: row.deptId,
+    })
+    ElMessage.success(`项目已${getProjectStatusText(row.projectStatus)}`)
+  } catch (error) {
+    await loadPageData()
+    throw error
+  }
 }
 
 function getProjectStatusText(projectStatus) {

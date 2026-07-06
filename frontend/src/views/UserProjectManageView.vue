@@ -4,7 +4,6 @@
       <div>
         <span class="card-eyebrow">项目授权</span>
         <h2>项目授权管理</h2>
-        <p>为本部门员工分配可填报工时的项目，禁用项目不能设置为有效授权。</p>
       </div>
 
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">
@@ -13,7 +12,76 @@
     </div>
 
     <div class="surface-panel table-panel">
-      <el-table v-loading="loading" :data="authList" border stripe empty-text="暂无授权数据">
+      <div class="list-filter-bar">
+        <el-input
+          v-model.trim="queryForm.keyword"
+          class="list-filter-input"
+          clearable
+          placeholder="搜索员工或项目"
+          @input="resetCurrentPage"
+          @clear="resetCurrentPage"
+        />
+        <el-select
+          v-model="queryForm.authStatus"
+          class="list-filter-select"
+          clearable
+          placeholder="全部授权状态"
+          @change="resetCurrentPage"
+          @clear="resetCurrentPage"
+        >
+          <el-option label="有效授权" :value="1" />
+          <el-option label="取消授权" :value="0" />
+        </el-select>
+        <el-select
+          v-model="queryForm.projectStatus"
+          class="list-filter-select"
+          clearable
+          placeholder="全部项目状态"
+          @change="resetCurrentPage"
+          @clear="resetCurrentPage"
+        >
+          <el-option label="启用" :value="1" />
+          <el-option label="禁用" :value="0" />
+        </el-select>
+      </div>
+
+      <div class="table-toolbar batch-toolbar">
+        <span>共 {{ filteredAuthList.length }} 条授权记录</span>
+        <div>
+          <el-button :disabled="selectedAuthList.length === 0" @click="clearSelection">
+            清除选择
+          </el-button>
+          <el-button
+            type="primary"
+            :disabled="selectedAuthList.length === 0"
+            :loading="batchLoading"
+            @click="handleBatchEnable"
+          >
+            批量设为有效
+          </el-button>
+          <el-button
+            type="danger"
+            :disabled="selectedAuthList.length === 0"
+            :loading="batchLoading"
+            @click="handleBatchCancel"
+          >
+            批量取消授权
+          </el-button>
+        </div>
+        <strong v-if="selectedAuthList.length > 0">已选 {{ selectedAuthList.length }} 条</strong>
+      </div>
+
+      <el-table
+        ref="authTableRef"
+        v-loading="loading"
+        :data="pagedAuthList"
+        border
+        stripe
+        row-key="authId"
+        empty-text="暂无授权数据"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="authId" label="授权编号" width="110" />
         <el-table-column prop="userName" label="员工姓名" min-width="120" />
         <el-table-column prop="userDeptName" label="员工部门" min-width="160" />
@@ -52,6 +120,17 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-bar">
+        <el-pagination
+          v-model:current-page="pagination.currentPage"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[5, 10, 20, 50]"
+          :total="filteredAuthList.length"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px" destroy-on-close>
@@ -111,16 +190,29 @@ import {
 import { listUsersApi } from '../api/users'
 import { useAuthStore } from '../stores/auth'
 import { ROLE_EMPLOYEE } from '../utils/role'
+import { normalizeSearchText, paginateList } from '../utils/table'
 
 const authStore = useAuthStore()
 const loading = ref(false)
 const submitLoading = ref(false)
+const batchLoading = ref(false)
 const dialogVisible = ref(false)
 const formRef = ref()
+const authTableRef = ref()
 const authList = ref([])
+const selectedAuthList = ref([])
 const userList = ref([])
 const projectList = ref([])
 const editingAuthId = ref(null)
+const queryForm = reactive({
+  keyword: '',
+  authStatus: null,
+  projectStatus: null,
+})
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+})
 
 // 表单数据：字段名和后端 UserProjectCreateDTO / UserProjectUpdateDTO 保持一致。
 const form = reactive({
@@ -136,6 +228,25 @@ const rules = {
 }
 
 const dialogTitle = computed(() => (editingAuthId.value ? '修改授权状态' : '新增授权'))
+const filteredAuthList = computed(() => {
+  const keyword = normalizeSearchText(queryForm.keyword)
+
+  return authList.value.filter((item) => {
+    const matchKeyword = !keyword || [
+      item.authId,
+      item.userName,
+      item.userDeptName,
+      item.projectName,
+      item.projectDeptName,
+    ].some((value) => normalizeSearchText(value).includes(keyword))
+    const matchAuthStatus = queryForm.authStatus === null || item.authStatus === queryForm.authStatus
+    const matchProjectStatus = queryForm.projectStatus === null || item.projectStatus === queryForm.projectStatus
+    return matchKeyword && matchAuthStatus && matchProjectStatus
+  })
+})
+const pagedAuthList = computed(() =>
+  paginateList(filteredAuthList.value, pagination.currentPage, pagination.pageSize),
+)
 
 // 员工下拉框：只保留当前经理部门的普通员工。
 const employeeOptions = computed(() =>
@@ -163,11 +274,16 @@ async function loadPageData() {
       listProjectsApi(),
     ])
     authList.value = auths
+    selectedAuthList.value = []
     userList.value = users
     projectList.value = projects
   } finally {
     loading.value = false
   }
+}
+
+function resetCurrentPage() {
+  pagination.currentPage = 1
 }
 
 function resetForm() {
@@ -189,6 +305,15 @@ function openEditDialog(row) {
   form.projectId = row.projectId
   form.authStatus = row.authStatus
   dialogVisible.value = true
+}
+
+function handleSelectionChange(selection) {
+  selectedAuthList.value = selection
+}
+
+function clearSelection() {
+  authTableRef.value?.clearSelection()
+  selectedAuthList.value = []
 }
 
 async function handleSubmit() {
@@ -235,6 +360,89 @@ async function handleCancelAuth(row) {
   await cancelUserProjectApi(row.authId)
   ElMessage.success('已取消授权')
   await loadPageData()
+}
+
+async function handleBatchEnable() {
+  if (selectedAuthList.value.length === 0) {
+    ElMessage.warning('请先选择需要处理的授权记录')
+    return
+  }
+
+  const disabledProjectAuth = selectedAuthList.value.find((item) => item.projectStatus === 0)
+  if (disabledProjectAuth) {
+    ElMessage.warning('选中的记录包含禁用项目，不能批量设为有效授权')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定将选中的 ${selectedAuthList.value.length} 条授权设为有效吗？`,
+      '批量设为有效',
+      {
+        confirmButtonText: '设为有效',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+  } catch {
+    return
+  }
+
+  batchLoading.value = true
+
+  try {
+    // 批量授权复用单条修改接口，后端仍会校验部门范围和业务规则。
+    await Promise.all(
+      selectedAuthList.value.map((item) =>
+        updateUserProjectApi(item.authId, {
+          authStatus: 1,
+        }),
+      ),
+    )
+    ElMessage.success(`${selectedAuthList.value.length} 条授权已设为有效`)
+    clearSelection()
+    await loadPageData()
+  } finally {
+    batchLoading.value = false
+  }
+}
+
+async function handleBatchCancel() {
+  if (selectedAuthList.value.length === 0) {
+    ElMessage.warning('请先选择需要处理的授权记录')
+    return
+  }
+
+  const validAuthList = selectedAuthList.value.filter((item) => item.authStatus !== 0)
+  if (validAuthList.length === 0) {
+    ElMessage.warning('选中的授权记录已经全部取消')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定批量取消选中的 ${validAuthList.length} 条有效授权吗？`,
+      '批量取消授权',
+      {
+        confirmButtonText: '取消授权',
+        cancelButtonText: '返回',
+        type: 'warning',
+      },
+    )
+  } catch {
+    return
+  }
+
+  batchLoading.value = true
+
+  try {
+    await Promise.all(validAuthList.map((item) => cancelUserProjectApi(item.authId)))
+    ElMessage.success(`${validAuthList.length} 条授权已取消`)
+    clearSelection()
+    await loadPageData()
+  } finally {
+    batchLoading.value = false
+  }
 }
 
 function getAuthStatusText(authStatus) {

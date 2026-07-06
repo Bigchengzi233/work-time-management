@@ -4,7 +4,7 @@
       <div class="login-intro">
         <div class="login-brand">
           <div class="brand-mark">工</div>
-          <span>Work Time Console</span>
+          <span>Work Time Management</span>
         </div>
 
         <div class="login-copy">
@@ -82,7 +82,11 @@ const rules = {
 }
 
 async function handleLogin() {
-  await loginFormRef.value.validate()
+  try {
+    await loginFormRef.value.validate()
+  } catch {
+    return
+  }
 
   try {
     loading.value = true

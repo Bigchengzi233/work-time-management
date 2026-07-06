@@ -4,7 +4,6 @@
       <div>
         <span class="card-eyebrow">操作日志</span>
         <h2>工时操作日志</h2>
-        <p>{{ pageDesc }}</p>
       </div>
 
       <el-button :icon="Refresh" @click="loadLogs">
@@ -14,6 +13,17 @@
 
     <div class="surface-panel log-filter-panel">
       <el-form :model="queryForm" class="log-filter-form" label-width="76px">
+        <el-form-item label="关键词">
+          <el-input
+            v-model.trim="queryForm.keyword"
+            class="log-keyword-input"
+            clearable
+            placeholder="搜索员工、项目、操作人"
+            @input="resetCurrentPage"
+            @clear="resetCurrentPage"
+          />
+        </el-form-item>
+
         <el-form-item label="工时编号">
           <el-input-number
             v-model="queryForm.workId"
@@ -49,7 +59,11 @@
     </div>
 
     <div class="surface-panel table-panel">
-      <el-table v-loading="loading" :data="logList" border stripe empty-text="暂无操作日志">
+      <div class="table-toolbar">
+        <span>共 {{ filteredLogList.length }} 条日志记录</span>
+      </div>
+
+      <el-table v-loading="loading" :data="pagedLogList" border stripe empty-text="暂无操作日志">
         <el-table-column prop="logId" label="日志编号" width="100" />
         <el-table-column prop="workId" label="工时编号" width="100" />
         <el-table-column prop="workUserName" label="员工姓名" width="120" />
@@ -67,6 +81,17 @@
         <el-table-column prop="operationTime" label="操作时间" width="180" />
         <el-table-column prop="operationDesc" label="操作说明" min-width="260" show-overflow-tooltip />
       </el-table>
+
+      <div class="pagination-bar">
+        <el-pagination
+          v-model:current-page="pagination.currentPage"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[5, 10, 20, 50]"
+          :total="filteredLogList.length"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </div>
   </section>
 </template>
@@ -75,17 +100,20 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { listWorkTimeLogsApi } from '../api/workTimeLogs'
-import { useAuthStore } from '../stores/auth'
-import { ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
+import { normalizeSearchText, paginateList } from '../utils/table'
 
-const authStore = useAuthStore()
 const loading = ref(false)
 const logList = ref([])
 
 // 筛选条件：只做简单筛选，方便管理员或经理快速定位某条工时的操作记录。
 const queryForm = reactive({
+  keyword: '',
   workId: null,
   operationType: null,
+})
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
 })
 
 const operationTypeOptions = [
@@ -96,21 +124,35 @@ const operationTypeOptions = [
   { label: '驳回', value: 4 },
 ]
 
-const pageDesc = computed(() => {
-  const descMap = {
-    [ROLE_ADMIN]: '管理员可以查看系统中全部工时申报单的关键操作记录。',
-    [ROLE_MANAGER]: '部门经理可以查看本部门员工工时申报单的操作记录。',
-    [ROLE_EMPLOYEE]: '员工可以查看本人工时申报单的操作记录。',
+const filteredLogList = computed(() => {
+  const keyword = normalizeSearchText(queryForm.keyword)
+
+  if (!keyword) {
+    return logList.value
   }
 
-  return descMap[authStore.userRole] || '查看工时申报单的新建、修改、提交、审批和驳回记录。'
+  return logList.value.filter((item) =>
+    [
+      item.logId,
+      item.workId,
+      item.workUserName,
+      item.userDeptName,
+      item.projectName,
+      item.operatorName,
+      item.operationDesc,
+    ].some((value) => normalizeSearchText(value).includes(keyword)),
+  )
 })
+const pagedLogList = computed(() =>
+  paginateList(filteredLogList.value, pagination.currentPage, pagination.pageSize),
+)
 
 onMounted(() => {
   loadLogs()
 })
 
 async function loadLogs() {
+  resetCurrentPage()
   loading.value = true
 
   try {
@@ -124,9 +166,14 @@ async function loadLogs() {
 }
 
 function handleReset() {
+  queryForm.keyword = ''
   queryForm.workId = null
   queryForm.operationType = null
   loadLogs()
+}
+
+function resetCurrentPage() {
+  pagination.currentPage = 1
 }
 
 function getLogTypeText(operationType) {

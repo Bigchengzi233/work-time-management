@@ -4,7 +4,6 @@
       <div>
         <span class="card-eyebrow">统计分析</span>
         <h2>{{ pageTitle }}</h2>
-        <p>{{ pageDesc }}</p>
       </div>
 
       <el-button :icon="Refresh" @click="loadStatistics">
@@ -52,6 +51,7 @@
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             range-separator="至"
+            :shortcuts="dateShortcuts"
           />
         </el-form-item>
 
@@ -65,25 +65,43 @@
       <article class="surface-card statistics-card">
         <span class="card-eyebrow">统计范围</span>
         <strong>{{ statisticsResult?.scopeName || '-' }}</strong>
-        <p>{{ scopeHelpText }}</p>
       </article>
 
       <article class="surface-card statistics-card">
         <span class="card-eyebrow">审批通过工时</span>
         <strong>{{ totalHoursText }}</strong>
-        <p>只统计审批通过且未删除的工时报单。</p>
       </article>
 
       <article class="surface-card statistics-card">
         <span class="card-eyebrow">明细数量</span>
         <strong>{{ detailCount }} 条</strong>
-        <p>当前日期范围内进入统计口径的工时记录数。</p>
       </article>
 
       <article class="surface-card statistics-card">
         <span class="card-eyebrow">平均工时</span>
         <strong>{{ averageHoursText }}</strong>
-        <p>总工时除以明细数量，仅用于快速参考。</p>
+      </article>
+    </div>
+
+    <div class="statistics-chart-grid">
+      <article class="surface-panel chart-panel">
+        <div class="panel-heading">
+          <div>
+            <span class="card-eyebrow">趋势</span>
+            <h2>工时趋势</h2>
+          </div>
+        </div>
+        <v-chart class="statistics-chart" :option="trendChartOption" autoresize />
+      </article>
+
+      <article class="surface-panel chart-panel">
+        <div class="panel-heading">
+          <div>
+            <span class="card-eyebrow">项目</span>
+            <h2>项目占比</h2>
+          </div>
+        </div>
+        <v-chart class="statistics-chart" :option="projectPieOption" autoresize />
       </article>
     </div>
 
@@ -93,10 +111,20 @@
           <span class="card-eyebrow">统计明细</span>
           <h2>审批通过工时明细</h2>
         </div>
-        <p>{{ dateRangeText }}</p>
+        <div class="statistics-table-tools">
+          <el-input
+            v-model.trim="detailKeyword"
+            class="list-filter-input"
+            clearable
+            placeholder="搜索员工、部门、项目"
+            @input="resetCurrentPage"
+            @clear="resetCurrentPage"
+          />
+          <p>{{ dateRangeText }}</p>
+        </div>
       </div>
 
-      <el-table v-loading="loading" :data="detailList" border stripe empty-text="暂无统计数据">
+      <el-table v-loading="loading" :data="pagedDetailList" border stripe empty-text="暂无统计数据">
         <el-table-column prop="workId" label="工时编号" width="110" />
         <el-table-column prop="userName" label="员工姓名" width="120" />
         <el-table-column prop="deptName" label="所属部门" min-width="150" show-overflow-tooltip />
@@ -105,6 +133,17 @@
         <el-table-column prop="workHours" label="工时数" width="100" />
         <el-table-column prop="workDesc" label="工作描述" min-width="240" show-overflow-tooltip />
       </el-table>
+
+      <div class="pagination-bar">
+        <el-pagination
+          v-model:current-page="pagination.currentPage"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[5, 10, 20, 50]"
+          :total="filteredDetailList.length"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+        />
+      </div>
     </div>
   </section>
 </template>
@@ -113,6 +152,11 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart, PieChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import VChart from 'vue-echarts'
 import {
   getCompanyStatisticsApi,
   getDepartmentStatisticsByDeptApi,
@@ -123,12 +167,16 @@ import { listDepartmentsApi } from '../api/departments'
 import { listUsersApi } from '../api/users'
 import { useAuthStore } from '../stores/auth'
 import { ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
+import { normalizeSearchText, paginateList } from '../utils/table'
+
+use([CanvasRenderer, LineChart, PieChart, GridComponent, LegendComponent, TooltipComponent])
 
 const authStore = useAuthStore()
 const loading = ref(false)
 const statisticsResult = ref(null)
 const departmentOptions = ref([])
 const userOptions = ref([])
+const detailKeyword = ref('')
 
 // 默认查询当前月份：方便用户进入页面后直接看到最近统计数据。
 const queryForm = reactive({
@@ -137,8 +185,46 @@ const queryForm = reactive({
   userId: null,
   dateRange: [getMonthStartDate(), getTodayDate()],
 })
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+})
+
+const dateShortcuts = [
+  {
+    text: '本周',
+    value: () => [getWeekStartDate(), new Date()],
+  },
+  {
+    text: '本月',
+    value: () => [new Date(new Date().getFullYear(), new Date().getMonth(), 1), new Date()],
+  },
+  {
+    text: '本季',
+    value: () => [getQuarterStartDate(), new Date()],
+  },
+  {
+    text: '本年',
+    value: () => [new Date(new Date().getFullYear(), 0, 1), new Date()],
+  },
+]
 
 const detailList = computed(() => statisticsResult.value?.details || [])
+const filteredDetailList = computed(() => {
+  const keyword = normalizeSearchText(detailKeyword.value)
+
+  if (!keyword) {
+    return detailList.value
+  }
+
+  return detailList.value.filter((item) =>
+    [item.workId, item.userName, item.deptName, item.projectName, item.workDesc]
+      .some((value) => normalizeSearchText(value).includes(keyword)),
+  )
+})
+const pagedDetailList = computed(() =>
+  paginateList(filteredDetailList.value, pagination.currentPage, pagination.pageSize),
+)
 const detailCount = computed(() => detailList.value.length)
 const employeeOptions = computed(() => userOptions.value.filter((user) => user.userRole === ROLE_EMPLOYEE))
 const showDepartmentSelector = computed(() =>
@@ -168,46 +254,6 @@ const pageTitle = computed(() => {
   return titleMap[authStore.userRole] || '工时统计'
 })
 
-const pageDesc = computed(() => {
-  if (authStore.userRole === ROLE_ADMIN) {
-    const adminDescMap = {
-      company: '查看公司全部部门审批通过后的工时投入情况。',
-      department: '选择一个部门，查看该部门审批通过后的工时投入情况。',
-      personal: '选择一名员工，查看该员工审批通过后的工时记录和总工时。',
-    }
-
-    return adminDescMap[queryForm.adminScopeType]
-  }
-
-  const descMap = {
-    [ROLE_ADMIN]: '查看公司全部部门审批通过后的工时投入情况。',
-    [ROLE_MANAGER]: '查看本人负责部门内审批通过后的工时投入情况。',
-    [ROLE_EMPLOYEE]: '查看本人审批通过后的工时记录和总工时。',
-  }
-
-  return descMap[authStore.userRole] || '查看审批通过后的工时统计数据。'
-})
-
-const scopeHelpText = computed(() => {
-  if (authStore.userRole === ROLE_ADMIN) {
-    const adminHelpMap = {
-      company: '管理员查看公司总体数据。',
-      department: '管理员按部门下钻查看数据。',
-      personal: '管理员按员工下钻查看数据。',
-    }
-
-    return adminHelpMap[queryForm.adminScopeType]
-  }
-
-  const helpMap = {
-    [ROLE_ADMIN]: '管理员查看公司总体数据。',
-    [ROLE_MANAGER]: '部门经理查看本部门数据。',
-    [ROLE_EMPLOYEE]: '员工查看本人数据。',
-  }
-
-  return helpMap[authStore.userRole] || '根据当前登录角色控制统计范围。'
-})
-
 const totalHoursText = computed(() => `${formatHours(statisticsResult.value?.totalHours)} 小时`)
 
 const averageHoursText = computed(() => {
@@ -226,6 +272,78 @@ const dateRangeText = computed(() => {
   }
 
   return `${startDate} 至 ${endDate}`
+})
+
+const trendChartOption = computed(() => {
+  const trendMap = detailList.value.reduce((map, item) => {
+    const date = item.workDate || '未知日期'
+    map.set(date, Number(map.get(date) || 0) + Number(item.workHours || 0))
+    return map
+  }, new Map())
+  const dates = Array.from(trendMap.keys()).sort()
+
+  return {
+    tooltip: {
+      trigger: 'axis',
+      valueFormatter: (value) => `${formatHours(value)} 小时`,
+    },
+    grid: {
+      left: 42,
+      right: 18,
+      top: 26,
+      bottom: 36,
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+    },
+    series: [
+      {
+        name: '工时',
+        type: 'line',
+        smooth: true,
+        areaStyle: {},
+        data: dates.map((date) => Number(trendMap.get(date) || 0).toFixed(1)),
+      },
+    ],
+  }
+})
+
+const projectPieOption = computed(() => {
+  const projectMap = detailList.value.reduce((map, item) => {
+    const projectName = item.projectName || '未知项目'
+    map.set(projectName, Number(map.get(projectName) || 0) + Number(item.workHours || 0))
+    return map
+  }, new Map())
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      valueFormatter: (value) => `${formatHours(value)} 小时`,
+    },
+    legend: {
+      bottom: 0,
+      type: 'scroll',
+    },
+    series: [
+      {
+        name: '项目工时',
+        type: 'pie',
+        radius: ['42%', '68%'],
+        center: ['50%', '42%'],
+        avoidLabelOverlap: true,
+        data: Array.from(projectMap.entries()).map(([name, value]) => ({
+          name,
+          value: Number(value.toFixed(1)),
+        })),
+      },
+    ],
+  }
 })
 
 onMounted(() => {
@@ -251,6 +369,7 @@ async function loadAdminOptions() {
 }
 
 async function loadStatistics() {
+  resetCurrentPage()
   const [startDate, endDate] = queryForm.dateRange || []
 
   if (!startDate || !endDate) {
@@ -330,6 +449,18 @@ function getMonthStartDate() {
   return formatDate(new Date(today.getFullYear(), today.getMonth(), 1))
 }
 
+function getWeekStartDate() {
+  const today = new Date()
+  const day = today.getDay() || 7
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate() - day + 1)
+}
+
+function getQuarterStartDate() {
+  const today = new Date()
+  const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3
+  return new Date(today.getFullYear(), quarterStartMonth, 1)
+}
+
 function formatDate(date) {
   const year = date.getFullYear()
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
@@ -345,5 +476,10 @@ function handleAdminScopeChange() {
   statisticsResult.value = null
   queryForm.deptId = null
   queryForm.userId = null
+  resetCurrentPage()
+}
+
+function resetCurrentPage() {
+  pagination.currentPage = 1
 }
 </script>
