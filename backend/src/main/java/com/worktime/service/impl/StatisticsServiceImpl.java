@@ -2,6 +2,7 @@ package com.worktime.service.impl;
 
 import com.worktime.common.AuthUtil;
 import com.worktime.common.CurrentUser;
+import com.worktime.common.RoleConstants;
 import com.worktime.exception.BusinessException;
 import com.worktime.mapper.StatisticsMapper;
 import com.worktime.service.StatisticsService;
@@ -28,9 +29,13 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public WorkTimeStatisticsVO getPersonalStatistics(Integer userId, LocalDate startDate, LocalDate endDate) {
         validateDateRange(startDate, endDate);
-        CurrentUser currentUser = AuthUtil.requireEmployee();
-        if (!currentUser.getUserId().equals(userId)) {
+        CurrentUser currentUser = AuthUtil.currentUser();
+        if (RoleConstants.EMPLOYEE.equals(currentUser.getUserRole()) && !currentUser.getUserId().equals(userId)) {
             throw new BusinessException(403, "只能查询本人个人工时统计");
+        }
+        if (!RoleConstants.EMPLOYEE.equals(currentUser.getUserRole())
+                && !RoleConstants.ADMIN.equals(currentUser.getUserRole())) {
+            throw new BusinessException(403, "无权查询个人工时统计");
         }
 
         if (statisticsMapper.countUserById(userId) == 0) {
@@ -56,6 +61,27 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         List<WorkTimeStatisticsDetailVO> details = statisticsMapper.selectDepartmentDetails(managerId, startDate, endDate);
         return buildStatistics("department", managerId, statisticsMapper.selectManagerDepartmentName(managerId), startDate, endDate, details);
+    }
+
+    // 管理员按部门查询工时统计。
+    @Override
+    public WorkTimeStatisticsVO getDepartmentStatisticsByDeptId(Integer adminId, Integer deptId, LocalDate startDate, LocalDate endDate) {
+        validateDateRange(startDate, endDate);
+        CurrentUser currentUser = AuthUtil.requireAdmin();
+        if (!currentUser.getUserId().equals(adminId)) {
+            throw new BusinessException(403, "只能使用本人管理员编号查询部门统计");
+        }
+
+        if (statisticsMapper.countAdminById(adminId) == 0) {
+            throw new BusinessException(400, "查询人不是管理员");
+        }
+
+        if (statisticsMapper.countDepartmentById(deptId) == 0) {
+            throw new BusinessException(404, "部门不存在");
+        }
+
+        List<WorkTimeStatisticsDetailVO> details = statisticsMapper.selectDepartmentDetailsByDeptId(deptId, startDate, endDate);
+        return buildStatistics("department", deptId, statisticsMapper.selectDepartmentNameById(deptId), startDate, endDate, details);
     }
 
     // 查询公司工时统计。

@@ -41,6 +41,16 @@ public class StatisticsController {
         return ApiResponse.success(statisticsService.getDepartmentStatistics(managerId, startDate, endDate));
     }
 
+    // 管理员按部门查询工时统计，对应 GET /api/statistics/department-by-dept。
+    @GetMapping("/department-by-dept")
+    public ApiResponse<WorkTimeStatisticsVO> getDepartmentStatisticsByDeptId(
+            @RequestParam Integer adminId,
+            @RequestParam Integer deptId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ApiResponse.success(statisticsService.getDepartmentStatisticsByDeptId(adminId, deptId, startDate, endDate));
+    }
+
     // 查询公司工时统计，对应 GET /api/statistics/company。
     @GetMapping("/company")
     public ApiResponse<WorkTimeStatisticsVO> getCompanyStatistics(

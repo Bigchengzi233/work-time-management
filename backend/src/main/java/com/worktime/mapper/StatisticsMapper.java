@@ -18,8 +18,14 @@ public interface StatisticsMapper {
     // 检查用户是否是管理员。
     int countAdminById(Integer adminId);
 
+    // 检查部门是否存在。
+    int countDepartmentById(Integer deptId);
+
     // 查询用户姓名，用于统计结果标题。
     String selectUserNameById(Integer userId);
+
+    // 查询部门名称，用于统计结果标题。
+    String selectDepartmentNameById(Integer deptId);
 
     // 查询部门经理所在部门名称，用于部门统计结果标题。
     String selectManagerDepartmentName(Integer managerId);
@@ -33,6 +39,12 @@ public interface StatisticsMapper {
     // 查询部门审批通过工时明细。
     List<WorkTimeStatisticsDetailVO> selectDepartmentDetails(
             @Param("managerId") Integer managerId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    // 管理员按部门编号查询审批通过工时明细。
+    List<WorkTimeStatisticsDetailVO> selectDepartmentDetailsByDeptId(
+            @Param("deptId") Integer deptId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 

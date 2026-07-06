@@ -13,6 +13,9 @@ public interface StatisticsService {
     // 查询部门工时统计。
     WorkTimeStatisticsVO getDepartmentStatistics(Integer managerId, LocalDate startDate, LocalDate endDate);
 
+    // 管理员按部门查询工时统计。
+    WorkTimeStatisticsVO getDepartmentStatisticsByDeptId(Integer adminId, Integer deptId, LocalDate startDate, LocalDate endDate);
+
     // 查询公司工时统计。
     WorkTimeStatisticsVO getCompanyStatistics(Integer adminId, LocalDate startDate, LocalDate endDate);
 }

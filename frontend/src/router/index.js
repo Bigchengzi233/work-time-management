@@ -5,10 +5,10 @@ import LoginView from '../views/LoginView.vue'
 import MainLayout from '../views/MainLayout.vue'
 import DashboardView from '../views/DashboardView.vue'
 import BaseDataView from '../views/BaseDataView.vue'
-import PlaceholderView from '../views/PlaceholderView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import UserProjectManageView from '../views/UserProjectManageView.vue'
 import WorkTimeManageView from '../views/WorkTimeManageView.vue'
+import StatisticsView from '../views/StatisticsView.vue'
 
 const routes = [
   {
@@ -62,7 +62,7 @@ const routes = [
       {
         path: 'statistics',
         name: 'statistics',
-        component: PlaceholderView,
+        component: StatisticsView,
         meta: {
           title: '统计分析',
           roles: [ROLE_ADMIN, ROLE_MANAGER, ROLE_EMPLOYEE],
