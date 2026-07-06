@@ -46,21 +46,23 @@
         <div class="panel-heading">
           <div>
             <span class="card-eyebrow">待办事项</span>
-            <h2>{{ todoTitle }}</h2>
           </div>
         </div>
 
-        <div v-if="todoItems.length > 0" class="todo-list">
-          <button
-            v-for="item in todoItems"
-            :key="item.key"
-            class="todo-item"
-            type="button"
-            @click="router.push(item.path)"
-          >
-            <span>{{ item.title }}</span>
-            <small>{{ item.desc }}</small>
-          </button>
+        <div v-if="todoGroups.length > 0" class="todo-list">
+          <section v-for="group in todoGroups" :key="group.title" class="todo-group">
+            <h3>{{ group.title }}</h3>
+            <button
+              v-for="item in group.items"
+              :key="item.key"
+              class="todo-item"
+              type="button"
+              @click="handleTodoItemClick(item)"
+            >
+              <span>{{ item.title }}</span>
+              <small>{{ item.desc }}</small>
+            </button>
+          </section>
         </div>
         <el-empty v-else :description="emptyTodoDescription" :image-size="84" />
       </article>
@@ -124,14 +126,15 @@ import {
   getPersonalStatisticsApi,
 } from '../api/statistics'
 import { listUsersApi } from '../api/users'
-import { listUserProjectsByUserIdApi } from '../api/userProjects'
 import { listWorkTimeLogsApi } from '../api/workTimeLogs'
 import { listPendingWorkTimesByManagerIdApi, listWorkTimesByUserIdApi } from '../api/workTimes'
 import { useAuthStore } from '../stores/auth'
+import { useNotificationStore } from '../stores/notifications'
 import { getRoleName, ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const notificationStore = useNotificationStore()
 const loading = ref(false)
 const dashboardData = ref({
   users: [],
@@ -196,7 +199,7 @@ const quickActions = computed(() => currentConfig.value.actions)
 const showTodoPanel = computed(() => authStore.userRole !== ROLE_ADMIN)
 const showAuthorizedProjectsPanel = computed(() => authStore.userRole === ROLE_EMPLOYEE)
 const emptyTodoDescription = computed(() => (
-  authStore.userRole === ROLE_MANAGER ? '暂无待审批工时' : '暂无被驳回工时'
+  authStore.userRole === ROLE_MANAGER ? '暂无待审批工时' : '暂无消息提醒'
 ))
 
 const totalHoursText = computed(() => `${formatHours(dashboardData.value.statistics?.totalHours)} 小时`)
@@ -204,9 +207,16 @@ const pendingCount = computed(() => dashboardData.value.pendingWorkTimes.length)
 const employeeWorkTimes = computed(() => dashboardData.value.workTimes.filter((item) => item.isDeleted === 0))
 const approvedCount = computed(() => employeeWorkTimes.value.filter((item) => item.status === STATUS_APPROVED).length)
 const employeePendingCount = computed(() => employeeWorkTimes.value.filter((item) => item.status === STATUS_PENDING).length)
-const activeAuthorizedProjects = computed(() =>
-  dashboardData.value.userProjects.filter((item) => item.authStatus === 1 && item.projectStatus === 1),
-)
+const activeAuthorizedProjects = computed(() => {
+  if (
+    authStore.userRole === ROLE_EMPLOYEE
+    && notificationStore.currentUserId === authStore.user?.userId
+  ) {
+    return notificationStore.activeAuthorizationNotifications
+  }
+
+  return dashboardData.value.userProjects.filter((item) => item.authStatus === 1 && item.projectStatus === 1)
+})
 
 const summaryCards = computed(() => {
   if (authStore.userRole === ROLE_ADMIN) {
@@ -234,38 +244,54 @@ const summaryCards = computed(() => {
   ]
 })
 
-const todoTitle = computed(() => {
+const todoGroups = computed(() => {
   if (authStore.userRole === ROLE_MANAGER) {
-    return '待审批工时'
-  }
-
-  if (authStore.userRole === ROLE_EMPLOYEE) {
-    return '被驳回工时'
-  }
-
-  return ''
-})
-
-const todoItems = computed(() => {
-  if (authStore.userRole === ROLE_MANAGER) {
-    return dashboardData.value.pendingWorkTimes.slice(0, 5).map((item) => ({
+    const pendingItems = dashboardData.value.pendingWorkTimes.slice(0, 5).map((item) => ({
       key: `pending-${item.workId}`,
+      type: 'work-time',
       title: `${item.userName} · ${item.workHours} 小时`,
       desc: `${item.projectName} / ${item.workDate}`,
       path: '/work-times',
     }))
+
+    const projectItems = notificationStore.unreadProjectNotifications.map((item) => ({
+      key: `project-${item.projectId}`,
+      type: 'project',
+      title: '新增项目待授权',
+      desc: `${item.projectName} / ${item.deptName || authStore.user?.deptName || '暂无部门'}`,
+      notification: item,
+    }))
+
+    return [
+      { title: '待审批工时', items: pendingItems },
+      { title: '待授权项目', items: projectItems },
+    ].filter((group) => group.items.length > 0)
   }
 
   if (authStore.userRole === ROLE_EMPLOYEE) {
-    return employeeWorkTimes.value
+    const authorizationItems = notificationStore.unreadAuthorizationNotifications.map((item) => ({
+      key: `authorization-${item.authId}`,
+      type: 'authorization',
+      title: '新增授权项目',
+      desc: `${item.projectName} / ${item.projectDeptName || authStore.user?.deptName || '暂无部门'}`,
+      notification: item,
+    }))
+
+    const rejectedItems = employeeWorkTimes.value
       .filter((item) => item.status === STATUS_REJECTED)
       .slice(0, 5)
       .map((item) => ({
         key: `rejected-${item.workId}`,
+        type: 'work-time',
         title: `${item.projectName} · ${item.workHours} 小时`,
         desc: `${item.workDate} 已驳回，需修改后重新提交`,
         path: '/work-times',
       }))
+
+    return [
+      { title: '项目授权消息', items: authorizationItems },
+      { title: '被驳回工时', items: rejectedItems },
+    ].filter((group) => group.items.length > 0)
   }
 
   return []
@@ -313,6 +339,7 @@ async function loadDashboardData() {
         listPendingWorkTimesByManagerIdApi(authStore.user.userId),
         getDepartmentStatisticsApi({ managerId: authStore.user.userId, startDate, endDate }),
         listWorkTimeLogsApi(),
+        notificationStore.loadProjectNotifications(authStore.user.userId, authStore.userRole, authStore.user.deptId),
       ])
 
       dashboardData.value = {
@@ -326,17 +353,17 @@ async function loadDashboardData() {
       return
     }
 
-    const [workTimes, userProjects, statistics, logs] = await Promise.all([
+    const [workTimes, statistics, logs] = await Promise.all([
       listWorkTimesByUserIdApi(authStore.user.userId),
-      listUserProjectsByUserIdApi(authStore.user.userId),
       getPersonalStatisticsApi({ userId: authStore.user.userId, startDate, endDate }),
       listWorkTimeLogsApi(),
+      notificationStore.loadAuthorizationNotifications(authStore.user.userId, authStore.userRole),
     ])
 
     dashboardData.value = {
       ...dashboardData.value,
       workTimes,
-      userProjects,
+      userProjects: notificationStore.authorizationList,
       statistics,
       logs,
       pendingWorkTimes: [],
@@ -364,6 +391,20 @@ function formatDate(date) {
 
 function formatHours(value) {
   return Number(value || 0).toFixed(1)
+}
+
+function handleTodoItemClick(item) {
+  if (item.type === 'authorization') {
+    notificationStore.openAuthorizationDetail(item.notification)
+    return
+  }
+
+  if (item.type === 'project') {
+    notificationStore.openProjectDetail(item.notification)
+    return
+  }
+
+  router.push(item.path)
 }
 
 function getLogTypeText(operationType) {
