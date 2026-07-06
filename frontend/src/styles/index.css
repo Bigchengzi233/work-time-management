@@ -590,6 +590,10 @@ input {
   width: 100%;
 }
 
+.management-page .el-select {
+  width: 100%;
+}
+
 .placeholder-panel {
   max-width: 760px;
 }
