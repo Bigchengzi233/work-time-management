@@ -8,6 +8,7 @@ import BaseDataView from '../views/BaseDataView.vue'
 import PlaceholderView from '../views/PlaceholderView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import UserProjectManageView from '../views/UserProjectManageView.vue'
+import WorkTimeManageView from '../views/WorkTimeManageView.vue'
 
 const routes = [
   {
@@ -52,7 +53,7 @@ const routes = [
       {
         path: 'work-times',
         name: 'work-times',
-        component: PlaceholderView,
+        component: WorkTimeManageView,
         meta: {
           title: '工时管理',
           roles: [ROLE_MANAGER, ROLE_EMPLOYEE],

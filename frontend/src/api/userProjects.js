@@ -5,6 +5,11 @@ export function listUserProjectsApi() {
   return request.get('/user-projects')
 }
 
+// 根据用户编号查询授权项目：对应后端 GET /api/user-projects/users/{userId}。
+export function listUserProjectsByUserIdApi(userId) {
+  return request.get(`/user-projects/users/${userId}`)
+}
+
 // 新增授权记录：对应后端 POST /api/user-projects。
 export function createUserProjectApi(data) {
   return request.post('/user-projects', data)

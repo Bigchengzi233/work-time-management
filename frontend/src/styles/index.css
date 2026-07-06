@@ -633,6 +633,11 @@ input {
   width: 100%;
 }
 
+.management-page .el-date-editor,
+.management-page .el-input-number {
+  width: 100%;
+}
+
 .placeholder-panel {
   max-width: 760px;
 }

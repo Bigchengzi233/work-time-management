@@ -2,6 +2,7 @@ package com.worktime.service.impl;
 
 import com.worktime.common.AuthUtil;
 import com.worktime.common.CurrentUser;
+import com.worktime.common.RoleConstants;
 import com.worktime.dto.UserProjectCreateDTO;
 import com.worktime.dto.UserProjectUpdateDTO;
 import com.worktime.entity.UserProject;
@@ -52,14 +53,26 @@ public class UserProjectServiceImpl implements UserProjectService {
     // 根据用户编号查询该用户的授权项目。
     @Override
     public List<UserProjectVO> listUserProjectsByUserId(Integer userId) {
-        CurrentUser currentUser = AuthUtil.requireManager();
+        CurrentUser currentUser = AuthUtil.currentUser();
         if (userProjectMapper.countUserById(userId) == 0) {
             throw new BusinessException(404, "用户不存在");
         }
-        return userProjectMapper.selectByUserId(userId).stream()
-                .filter(userProject -> currentUser.getDeptId().equals(userProject.getUserDeptId()))
-                .map(UserProjectVO::fromRow)
-                .toList();
+
+        if (RoleConstants.EMPLOYEE.equals(currentUser.getUserRole())) {
+            AuthUtil.requireSelf(userId);
+            return userProjectMapper.selectByUserId(userId).stream()
+                    .map(UserProjectVO::fromRow)
+                    .toList();
+        }
+
+        if (RoleConstants.MANAGER.equals(currentUser.getUserRole())) {
+            return userProjectMapper.selectByUserId(userId).stream()
+                    .filter(userProject -> currentUser.getDeptId().equals(userProject.getUserDeptId()))
+                    .map(UserProjectVO::fromRow)
+                    .toList();
+        }
+
+        throw new BusinessException(403, "无权查看该员工项目授权");
     }
 
     // 新增授权记录。
