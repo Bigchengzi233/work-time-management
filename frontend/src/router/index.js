@@ -8,6 +8,7 @@ import BaseDataView from '../views/BaseDataView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import UserProjectManageView from '../views/UserProjectManageView.vue'
 import WorkTimeManageView from '../views/WorkTimeManageView.vue'
+import WorkTimeLogManageView from '../views/WorkTimeLogManageView.vue'
 import StatisticsView from '../views/StatisticsView.vue'
 
 const routes = [
@@ -57,6 +58,15 @@ const routes = [
         meta: {
           title: '工时管理',
           roles: [ROLE_MANAGER, ROLE_EMPLOYEE],
+        },
+      },
+      {
+        path: 'work-time-logs',
+        name: 'work-time-logs',
+        component: WorkTimeLogManageView,
+        meta: {
+          title: '工时操作日志',
+          roles: [ROLE_ADMIN, ROLE_MANAGER, ROLE_EMPLOYEE],
         },
       },
       {

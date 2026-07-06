@@ -1,5 +1,6 @@
 package com.worktime.vo;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 // 工时操作日志返回对象：返回给前端展示工时流转记录。
@@ -23,6 +24,21 @@ public class WorkTimeLogVO {
     // 操作人姓名。
     private String operatorName;
 
+    // 工时所属员工编号。
+    private Integer workUserId;
+
+    // 工时所属员工姓名。
+    private String workUserName;
+
+    // 工时所属员工部门名称。
+    private String userDeptName;
+
+    // 工时关联项目名称。
+    private String projectName;
+
+    // 工时对应的工作日期。
+    private LocalDate workDate;
+
     // 操作说明。
     private String operationDesc;
 
@@ -34,6 +50,11 @@ public class WorkTimeLogVO {
         vo.setOperationTime(row.getOperationTime());
         vo.setOperatorId(row.getOperatorId());
         vo.setOperatorName(row.getOperatorName());
+        vo.setWorkUserId(row.getWorkUserId());
+        vo.setWorkUserName(row.getWorkUserName());
+        vo.setUserDeptName(row.getUserDeptName());
+        vo.setProjectName(row.getProjectName());
+        vo.setWorkDate(row.getWorkDate());
         vo.setOperationDesc(row.getOperationDesc());
         return vo;
     }
@@ -84,6 +105,46 @@ public class WorkTimeLogVO {
 
     public void setOperatorName(String operatorName) {
         this.operatorName = operatorName;
+    }
+
+    public Integer getWorkUserId() {
+        return workUserId;
+    }
+
+    public void setWorkUserId(Integer workUserId) {
+        this.workUserId = workUserId;
+    }
+
+    public String getWorkUserName() {
+        return workUserName;
+    }
+
+    public void setWorkUserName(String workUserName) {
+        this.workUserName = workUserName;
+    }
+
+    public String getUserDeptName() {
+        return userDeptName;
+    }
+
+    public void setUserDeptName(String userDeptName) {
+        this.userDeptName = userDeptName;
+    }
+
+    public String getProjectName() {
+        return projectName;
+    }
+
+    public void setProjectName(String projectName) {
+        this.projectName = projectName;
+    }
+
+    public LocalDate getWorkDate() {
+        return workDate;
+    }
+
+    public void setWorkDate(LocalDate workDate) {
+        this.workDate = workDate;
     }
 
     public String getOperationDesc() {

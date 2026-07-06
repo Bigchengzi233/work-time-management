@@ -42,7 +42,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Clock, DataAnalysis, Files, House, User, UserFilled } from '@element-plus/icons-vue'
+import { Clock, DataAnalysis, DocumentChecked, Files, House, User, UserFilled } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import { getRoleName, ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
 
@@ -73,6 +73,12 @@ const menus = [
     path: '/work-times',
     icon: Clock,
     roles: [ROLE_MANAGER, ROLE_EMPLOYEE],
+  },
+  {
+    title: '操作日志',
+    path: '/work-time-logs',
+    icon: DocumentChecked,
+    roles: [ROLE_ADMIN, ROLE_MANAGER, ROLE_EMPLOYEE],
   },
   {
     title: '统计分析',

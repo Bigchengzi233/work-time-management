@@ -6,6 +6,7 @@ import com.worktime.vo.WorkTimeLogVO;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -20,6 +21,14 @@ public class WorkTimeLogController {
 
     public WorkTimeLogController(WorkTimeLogService workTimeLogService) {
         this.workTimeLogService = workTimeLogService;
+    }
+
+    // 查询当前登录用户可见的工时操作日志列表，对应 GET /api/work-time-logs。
+    @GetMapping
+    public ApiResponse<List<WorkTimeLogVO>> listVisibleLogs(
+            @RequestParam(required = false) Integer workId,
+            @RequestParam(required = false) Integer operationType) {
+        return ApiResponse.success(workTimeLogService.listVisibleLogs(workId, operationType));
     }
 
     // 根据工时编号查询操作日志，对应 GET /api/work-time-logs/work-times/{workId}。

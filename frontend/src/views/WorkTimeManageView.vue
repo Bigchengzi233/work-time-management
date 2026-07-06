@@ -28,13 +28,16 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="190" fixed="right" class-name="table-action-cell">
+        <el-table-column label="操作" width="240" fixed="right" class-name="table-action-cell">
           <template #default="{ row }">
             <el-button link type="primary" @click="openApproveDialog(row)">
               审批通过
             </el-button>
             <el-button link type="danger" @click="openRejectDialog(row)">
               驳回
+            </el-button>
+            <el-button link type="primary" @click="openLogDialog(row)">
+              日志
             </el-button>
           </template>
         </el-table-column>
@@ -125,7 +128,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right" class-name="table-action-cell">
+        <el-table-column label="操作" width="290" fixed="right" class-name="table-action-cell">
           <template #default="{ row }">
             <el-button link type="primary" :disabled="!canEdit(row)" @click="openEditDialog(row)">
               编辑
@@ -135,6 +138,9 @@
             </el-button>
             <el-button link type="danger" :disabled="!canDelete(row)" @click="handleDelete(row)">
               删除
+            </el-button>
+            <el-button link type="primary" @click="openLogDialog(row)">
+              日志
             </el-button>
           </template>
         </el-table-column>
@@ -203,6 +209,45 @@
     <h2>暂无可用功能</h2>
     <p>当前角色暂时没有工时管理操作入口。</p>
   </section>
+
+  <el-dialog v-model="logDialogVisible" title="工时操作日志" width="760px" destroy-on-close>
+    <div v-if="activeLogWorkTime" class="approval-summary log-summary">
+      <div>
+        <span>工时编号</span>
+        <strong>{{ activeLogWorkTime.workId }}</strong>
+      </div>
+      <div>
+        <span>项目</span>
+        <strong>{{ activeLogWorkTime.projectName }}</strong>
+      </div>
+      <div>
+        <span>日期</span>
+        <strong>{{ activeLogWorkTime.workDate }}</strong>
+      </div>
+      <div>
+        <span>状态</span>
+        <strong>{{ getStatusText(activeLogWorkTime.status) }}</strong>
+      </div>
+    </div>
+
+    <el-table v-loading="logLoading" :data="logList" border stripe empty-text="暂无操作日志">
+      <el-table-column prop="logId" label="日志编号" width="100" />
+      <el-table-column label="操作类型" width="120">
+        <template #default="{ row }">
+          <el-tag :type="getLogTagType(row.operationType)" effect="plain">
+            {{ getLogTypeText(row.operationType) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="operatorName" label="操作人" width="120" />
+      <el-table-column prop="operationTime" label="操作时间" width="180" />
+      <el-table-column prop="operationDesc" label="操作说明" min-width="220" show-overflow-tooltip />
+    </el-table>
+
+    <template #footer>
+      <el-button @click="logDialogVisible = false">关闭</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -210,6 +255,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { listUserProjectsByUserIdApi } from '../api/userProjects'
+import { listWorkTimeLogsByWorkIdApi } from '../api/workTimeLogs'
 import {
   approveWorkTimeApi,
   createWorkTimeApi,
@@ -232,15 +278,19 @@ const authStore = useAuthStore()
 const loading = ref(false)
 const submitLoading = ref(false)
 const approvalLoading = ref(false)
+const logLoading = ref(false)
 const dialogVisible = ref(false)
 const approvalDialogVisible = ref(false)
+const logDialogVisible = ref(false)
 const formRef = ref()
 const approvalFormRef = ref()
 const workTimeList = ref([])
 const pendingWorkTimeList = ref([])
+const logList = ref([])
 const userProjectList = ref([])
 const editingWorkId = ref(null)
 const activeWorkTime = ref(null)
+const activeLogWorkTime = ref(null)
 const approvalMode = ref('approve')
 
 // 表单数据：字段名和后端 WorkTimeCreateDTO / WorkTimeUpdateDTO 保持一致。
@@ -357,6 +407,18 @@ function openRejectDialog(row) {
   approvalMode.value = 'reject'
   resetApprovalForm()
   approvalDialogVisible.value = true
+}
+
+async function openLogDialog(row) {
+  activeLogWorkTime.value = row
+  logDialogVisible.value = true
+  logLoading.value = true
+
+  try {
+    logList.value = await listWorkTimeLogsByWorkIdApi(row.workId)
+  } finally {
+    logLoading.value = false
+  }
 }
 
 async function handleSave() {
@@ -482,6 +544,30 @@ function getStatusTagType(status) {
   }
 
   return typeMap[status] || 'info'
+}
+
+function getLogTypeText(operationType) {
+  const operationMap = {
+    0: '新建',
+    1: '修改',
+    2: '提交',
+    3: '审批通过',
+    4: '驳回',
+  }
+
+  return operationMap[operationType] || '未知操作'
+}
+
+function getLogTagType(operationType) {
+  const typeMap = {
+    0: 'info',
+    1: 'primary',
+    2: 'warning',
+    3: 'success',
+    4: 'danger',
+  }
+
+  return typeMap[operationType] || 'info'
 }
 
 function disableFutureDate(date) {

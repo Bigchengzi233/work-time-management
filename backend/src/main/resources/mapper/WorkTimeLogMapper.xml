@@ -15,7 +15,49 @@
         <result column="operator_id" property="operatorId"/>
         <result column="operation_desc" property="operationDesc"/>
         <result column="operator_name" property="operatorName"/>
+        <result column="work_user_id" property="workUserId"/>
+        <result column="work_user_name" property="workUserName"/>
+        <result column="user_dept_name" property="userDeptName"/>
+        <result column="project_name" property="projectName"/>
+        <result column="work_date" property="workDate"/>
     </resultMap>
+
+    <!-- 查询当前登录用户可见的工时操作日志列表。 -->
+    <select id="selectVisibleLogs" resultMap="WorkTimeLogRowResultMap">
+        SELECT
+            l.log_id,
+            l.work_id,
+            l.operation_type,
+            l.operation_time,
+            l.operator_id,
+            l.operation_desc,
+            operator_user.user_name AS operator_name,
+            w.user_id AS work_user_id,
+            work_user.user_name AS work_user_name,
+            d.dept_name AS user_dept_name,
+            p.project_name,
+            w.work_date
+        FROM work_time_log l
+        INNER JOIN work_time_apply w ON l.work_id = w.work_id
+        INNER JOIN `user` work_user ON w.user_id = work_user.user_id
+        INNER JOIN `user` operator_user ON l.operator_id = operator_user.user_id
+        LEFT JOIN department d ON work_user.dept_id = d.dept_id
+        LEFT JOIN project p ON w.project_id = p.project_id
+        WHERE 1 = 1
+        <if test="workId != null">
+            AND l.work_id = #{workId}
+        </if>
+        <if test="operationType != null">
+            AND l.operation_type = #{operationType}
+        </if>
+        <if test='userRole == "1"'>
+            AND work_user.dept_id = #{deptId}
+        </if>
+        <if test='userRole == "2"'>
+            AND w.user_id = #{currentUserId}
+        </if>
+        ORDER BY l.operation_time DESC, l.log_id DESC
+    </select>
 
     <!-- 根据工时编号查询该工时申报单的操作日志。 -->
     <select id="selectByWorkId" resultMap="WorkTimeLogRowResultMap">

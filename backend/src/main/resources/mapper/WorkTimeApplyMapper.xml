@@ -75,6 +75,12 @@
           AND w.is_deleted = 0
     </select>
 
+    <!-- 根据工时编号查询单条工时申报单，包含已软删除记录。 -->
+    <select id="selectByIdIncludeDeleted" resultMap="WorkTimeApplyRowResultMap">
+        <include refid="WorkTimeSelectColumns"/>
+        WHERE w.work_id = #{workId}
+    </select>
+
     <!-- 根据工时编号统计工时申报单数量，包含已软删除记录。 -->
     <select id="countByIdIncludeDeleted" resultType="int">
         SELECT COUNT(1)
