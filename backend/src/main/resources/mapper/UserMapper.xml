@@ -98,7 +98,6 @@
         SET
             user_name = #{userName},
             phone = #{phone},
-            psw = #{psw},
             email = #{email},
             user_role = #{userRole},
             dept_id = #{deptId}

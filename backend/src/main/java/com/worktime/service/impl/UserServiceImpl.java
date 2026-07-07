@@ -19,6 +19,9 @@ import java.util.List;
 @Service
 public class UserServiceImpl implements UserService {
 
+    // 管理员重置员工密码时使用的系统初始密码。
+    private static final String INITIAL_PASSWORD = "123456";
+
     // 用户数据访问对象。
     private final UserMapper userMapper;
 
@@ -117,14 +120,19 @@ public class UserServiceImpl implements UserService {
         user.setUserRole(updateDTO.getUserRole());
         user.setDeptId(updateDTO.getDeptId());
 
-        if (updateDTO.getPassword() == null || updateDTO.getPassword().isBlank()) {
-            user.setPsw(oldUser.getPsw());
-        } else {
-            user.setPsw(passwordEncoder.encode(updateDTO.getPassword()));
-        }
-
         userMapper.updateById(user);
         return getUserById(userId);
+    }
+
+    // 重置用户密码。
+    @Override
+    public void resetPassword(Integer userId) {
+        UserRowVO user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+
+        userMapper.updatePasswordById(userId, passwordEncoder.encode(INITIAL_PASSWORD));
     }
 
     // 删除用户。

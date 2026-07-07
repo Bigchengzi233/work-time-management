@@ -71,6 +71,14 @@ public class UserController {
         return ApiResponse.success(userService.updateUser(userId, updateDTO));
     }
 
+    // 重置用户密码，对应 PUT /api/users/{userId}/reset-password。
+    @PutMapping("/{userId}/reset-password")
+    public ApiResponse<Void> resetPassword(@PathVariable Integer userId) {
+        AuthUtil.requireAdmin();
+        userService.resetPassword(userId);
+        return ApiResponse.success();
+    }
+
     // 删除用户，对应 DELETE /api/users/{userId}。
     @DeleteMapping("/{userId}")
     public ApiResponse<Void> deleteUser(@PathVariable Integer userId) {

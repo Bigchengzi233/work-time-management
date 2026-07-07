@@ -15,6 +15,11 @@ export function updateUserApi(userId, data) {
   return request.put(`/users/${userId}`, data)
 }
 
+// 重置用户密码：对应后端 PUT /api/users/{userId}/reset-password。
+export function resetUserPasswordApi(userId) {
+  return request.put(`/users/${userId}/reset-password`)
+}
+
 // 删除用户：对应后端 DELETE /api/users/{userId}。
 export function deleteUserApi(userId) {
   return request.delete(`/users/${userId}`)

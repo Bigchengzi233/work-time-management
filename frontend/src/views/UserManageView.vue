@@ -109,14 +109,26 @@
             />
           </el-form-item>
 
-          <el-form-item label="密码" prop="password">
+          <el-form-item v-if="!editingUserId" label="初始密码" prop="password">
             <el-input
               v-model="form.password"
               maxlength="50"
-              :placeholder="passwordPlaceholder"
+              placeholder="默认初始密码为 123456"
               show-password
               type="password"
             />
+          </el-form-item>
+
+          <el-form-item v-else class="password-reset-form-item" label="重置密码">
+            <div class="password-reset-panel">
+              <div>
+                <strong>重置为 123456</strong>
+                <span>员工忘记密码时，管理员可一键恢复初始密码。</span>
+              </div>
+              <el-button :loading="resetPasswordLoading" @click="handleResetPassword">
+                重置密码
+              </el-button>
+            </div>
           </el-form-item>
 
           <el-form-item label="邮箱" prop="email">
@@ -168,12 +180,13 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { listDepartmentsApi } from '../api/departments'
-import { createUserApi, deleteUserApi, listUsersApi, updateUserApi } from '../api/users'
+import { createUserApi, deleteUserApi, listUsersApi, resetUserPasswordApi, updateUserApi } from '../api/users'
 import { getRoleName, ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
 import { normalizeSearchText, paginateList } from '../utils/table'
 
 const loading = ref(false)
 const submitLoading = ref(false)
+const resetPasswordLoading = ref(false)
 const dialogVisible = ref(false)
 const formRef = ref()
 const userList = ref([])
@@ -188,6 +201,7 @@ const pagination = reactive({
   currentPage: 1,
   pageSize: 10,
 })
+const INITIAL_PASSWORD = '123456'
 
 // 表单数据：字段名和后端 UserCreateDTO / UserUpdateDTO 保持一致。
 const form = reactive({
@@ -249,9 +263,6 @@ const rules = {
 }
 
 const dialogTitle = computed(() => (editingUserId.value ? '编辑用户' : '新增用户'))
-const passwordPlaceholder = computed(() =>
-  editingUserId.value ? '留空表示不修改密码' : '请输入初始密码',
-)
 // 用户管理里不能再新增管理员，系统只保留初始化时的唯一管理员。
 // 如果正在编辑现有管理员，则展示“管理员”但禁用它，避免把管理员角色改掉。
 const assignableRoleOptions = computed(() => {
@@ -308,7 +319,7 @@ function resetForm() {
   editingUserId.value = null
   form.userName = ''
   form.phone = ''
-  form.password = ''
+  form.password = INITIAL_PASSWORD
   form.email = ''
   form.userRole = ROLE_EMPLOYEE
   form.deptId = null
@@ -338,7 +349,7 @@ async function handleSubmit() {
   const payload = {
     userName: form.userName,
     phone: form.phone,
-    password: form.password,
+    password: editingUserId.value ? '' : form.password,
     email: form.email,
     userRole: form.userRole,
     deptId: form.deptId,
@@ -357,6 +368,35 @@ async function handleSubmit() {
     await loadPageData()
   } finally {
     submitLoading.value = false
+  }
+}
+
+async function handleResetPassword() {
+  if (!editingUserId.value) {
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定将用户「${form.userName}」的登录密码重置为 ${INITIAL_PASSWORD} 吗？`,
+      '重置密码确认',
+      {
+        confirmButtonText: '重置密码',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+  } catch {
+    return
+  }
+
+  resetPasswordLoading.value = true
+
+  try {
+    await resetUserPasswordApi(editingUserId.value)
+    ElMessage.success(`密码已重置为 ${INITIAL_PASSWORD}`)
+  } finally {
+    resetPasswordLoading.value = false
   }
 }
 

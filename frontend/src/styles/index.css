@@ -1013,6 +1013,40 @@ input {
   width: 100%;
 }
 
+.password-reset-form-item {
+  grid-column: 1 / -1;
+}
+
+.password-reset-panel {
+  width: 100%;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  align-items: center;
+  gap: 10px;
+}
+
+.password-reset-panel div {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.password-reset-panel strong {
+  color: var(--color-ink-secondary);
+  font-size: 14px;
+}
+
+.password-reset-panel span {
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.password-reset-panel .el-button {
+  width: 160px;
+}
+
 .approval-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

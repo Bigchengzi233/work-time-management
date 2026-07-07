@@ -21,6 +21,9 @@ public interface UserService {
     // 修改用户。
     UserVO updateUser(Integer userId, UserUpdateDTO updateDTO);
 
+    // 重置用户登录密码为系统初始密码。
+    void resetPassword(Integer userId);
+
     // 删除用户。
     void deleteUser(Integer userId);
 }
