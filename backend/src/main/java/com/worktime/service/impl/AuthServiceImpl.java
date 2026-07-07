@@ -6,6 +6,7 @@ import com.worktime.exception.BusinessException;
 import com.worktime.mapper.UserMapper;
 import com.worktime.service.AuthService;
 import com.worktime.service.CaptchaService;
+import com.worktime.service.UserEmploymentStatusService;
 import com.worktime.vo.LoginVO;
 import com.worktime.vo.UserRowVO;
 import com.worktime.vo.UserVO;
@@ -28,15 +29,20 @@ public class AuthServiceImpl implements AuthService {
     // 验证码业务对象。
     private final CaptchaService captchaService;
 
+    // 用户在职状态业务对象。
+    private final UserEmploymentStatusService userEmploymentStatusService;
+
     public AuthServiceImpl(
             UserMapper userMapper,
             PasswordEncoder passwordEncoder,
             TokenUtil tokenUtil,
-            CaptchaService captchaService) {
+            CaptchaService captchaService,
+            UserEmploymentStatusService userEmploymentStatusService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.tokenUtil = tokenUtil;
         this.captchaService = captchaService;
+        this.userEmploymentStatusService = userEmploymentStatusService;
     }
 
     // 用户登录。
@@ -54,6 +60,10 @@ public class AuthServiceImpl implements AuthService {
 
         if (!matchesPassword(password, user.getPsw())) {
             throw new BusinessException(401, "手机号或密码错误");
+        }
+
+        if (userEmploymentStatusService.isInactive(user.getUserId())) {
+            throw new BusinessException(403, "该账号已离职，禁止登录系统");
         }
 
         upgradePlainPasswordIfNeeded(user, password);

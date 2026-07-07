@@ -107,6 +107,27 @@
         ORDER BY w.work_date DESC, w.work_id DESC
     </select>
 
+    <!-- 统计员工未审批通过的工时数量：存在草稿、待审批或已驳回时，不能设为离职。 -->
+    <select id="countUnapprovedByUserId" resultType="int">
+        SELECT COUNT(1)
+        FROM work_time_apply
+        WHERE user_id = #{userId}
+          AND status != 2
+          AND is_deleted = 0
+    </select>
+
+    <!-- 统计部门经理本部门待审批工时数量：待审批工时处理完后，经理才能设为离职。 -->
+    <select id="countPendingByManagerId" resultType="int">
+        SELECT COUNT(1)
+        FROM work_time_apply w
+        INNER JOIN `user` work_user ON w.user_id = work_user.user_id
+        INNER JOIN `user` manager_user ON manager_user.user_id = #{managerId}
+        WHERE manager_user.user_role = '1'
+          AND manager_user.dept_id = work_user.dept_id
+          AND w.status = 1
+          AND w.is_deleted = 0
+    </select>
+
     <!-- 根据部门经理编号和日期查询本部门已授权但未填报工时的员工。 -->
     <select id="selectMissingByManagerAndDate" resultType="com.worktime.vo.WorkTimeExceptionVO">
         SELECT

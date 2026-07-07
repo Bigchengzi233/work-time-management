@@ -30,6 +30,12 @@ public interface WorkTimeApplyMapper {
     // 根据部门经理编号查询其本部门待审批工时。
     List<WorkTimeApplyRowVO> selectPendingByManagerId(Integer managerId);
 
+    // 统计员工未审批通过的工时数量。
+    int countUnapprovedByUserId(Integer userId);
+
+    // 统计部门经理本部门待审批工时数量。
+    int countPendingByManagerId(Integer managerId);
+
     // 根据部门经理编号和日期查询本部门未填报工时的员工。
     List<WorkTimeExceptionVO> selectMissingByManagerAndDate(
             @Param("managerId") Integer managerId,

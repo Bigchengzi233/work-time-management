@@ -49,6 +49,17 @@
             :value="department.deptId"
           />
         </el-select>
+        <el-select
+          v-model="queryForm.employmentStatus"
+          class="list-filter-select"
+          clearable
+          placeholder="全部在职状态"
+          @change="resetCurrentPage"
+          @clear="resetCurrentPage"
+        >
+          <el-option label="在职" :value="EMPLOYMENT_ACTIVE" />
+          <el-option label="离职" :value="EMPLOYMENT_INACTIVE" />
+        </el-select>
       </div>
 
       <div class="table-toolbar">
@@ -68,6 +79,20 @@
           </template>
         </el-table-column>
         <el-table-column prop="deptName" label="所属部门" min-width="160" />
+        <el-table-column label="在职状态" width="150">
+          <template #default="{ row }">
+            <el-switch
+              v-model="row.employmentStatus"
+              :active-value="EMPLOYMENT_ACTIVE"
+              :inactive-value="EMPLOYMENT_INACTIVE"
+              active-text="在职"
+              inactive-text="离职"
+              inline-prompt
+              :disabled="row.userRole === ROLE_ADMIN"
+              @change="handleEmploymentStatusChange(row)"
+            />
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
@@ -162,6 +187,13 @@
               />
             </el-select>
           </el-form-item>
+
+          <el-form-item label="在职状态">
+            <el-radio-group v-model="form.employmentStatus" :disabled="form.userRole === ROLE_ADMIN">
+              <el-radio-button :label="EMPLOYMENT_ACTIVE">在职</el-radio-button>
+              <el-radio-button :label="EMPLOYMENT_INACTIVE">离职</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
         </div>
       </el-form>
 
@@ -180,7 +212,15 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { listDepartmentsApi } from '../api/departments'
-import { createUserApi, deleteUserApi, listUsersApi, resetUserPasswordApi, updateUserApi } from '../api/users'
+import {
+  createUserApi,
+  deleteUserApi,
+  listUserEmploymentStatusesApi,
+  listUsersApi,
+  resetUserPasswordApi,
+  updateUserApi,
+  updateUserEmploymentStatusApi,
+} from '../api/users'
 import { getRoleName, ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_MANAGER } from '../utils/role'
 import { normalizeSearchText, paginateList } from '../utils/table'
 
@@ -196,12 +236,15 @@ const queryForm = reactive({
   keyword: '',
   userRole: '',
   deptId: null,
+  employmentStatus: '',
 })
 const pagination = reactive({
   currentPage: 1,
   pageSize: 10,
 })
 const INITIAL_PASSWORD = '123456'
+const EMPLOYMENT_ACTIVE = 'active'
+const EMPLOYMENT_INACTIVE = 'inactive'
 
 // 表单数据：字段名和后端 UserCreateDTO / UserUpdateDTO 保持一致。
 const form = reactive({
@@ -211,6 +254,7 @@ const form = reactive({
   email: '',
   userRole: '',
   deptId: null,
+  employmentStatus: EMPLOYMENT_ACTIVE,
 })
 
 // 密码规则：新增用户必须填写密码；编辑用户时密码可为空，空字符串表示不修改密码。
@@ -288,7 +332,8 @@ const filteredUserList = computed(() => {
       .some((value) => normalizeSearchText(value).includes(keyword))
     const matchRole = queryForm.userRole === '' || item.userRole === queryForm.userRole
     const matchDept = !queryForm.deptId || item.deptId === queryForm.deptId
-    return matchKeyword && matchRole && matchDept
+    const matchEmploymentStatus = !queryForm.employmentStatus || item.employmentStatus === queryForm.employmentStatus
+    return matchKeyword && matchRole && matchDept && matchEmploymentStatus
   })
 })
 const pagedUserList = computed(() =>
@@ -303,8 +348,12 @@ async function loadPageData() {
   loading.value = true
 
   try {
-    const [users, departments] = await Promise.all([listUsersApi(), listDepartmentsApi()])
-    userList.value = users
+    const [users, departments, employmentStatusMap] = await Promise.all([
+      listUsersApi(),
+      listDepartmentsApi(),
+      listUserEmploymentStatusesApi(),
+    ])
+    userList.value = users.map((user) => appendEmploymentStatus(user, employmentStatusMap))
     departmentList.value = departments
   } finally {
     loading.value = false
@@ -323,6 +372,7 @@ function resetForm() {
   form.email = ''
   form.userRole = ROLE_EMPLOYEE
   form.deptId = null
+  form.employmentStatus = EMPLOYMENT_ACTIVE
   formRef.value?.clearValidate()
 }
 
@@ -339,6 +389,7 @@ function openEditDialog(row) {
   form.email = row.email || ''
   form.userRole = row.userRole
   form.deptId = row.deptId
+  form.employmentStatus = row.employmentStatus || EMPLOYMENT_ACTIVE
   dialogVisible.value = true
 }
 
@@ -358,9 +409,13 @@ async function handleSubmit() {
   try {
     if (editingUserId.value) {
       await updateUserApi(editingUserId.value, payload)
+      await updateUserEmploymentStatusApi(editingUserId.value, form.employmentStatus)
       ElMessage.success('用户修改成功')
     } else {
-      await createUserApi(payload)
+      const createdUser = await createUserApi(payload)
+      if (createdUser?.userId) {
+        await updateUserEmploymentStatusApi(createdUser.userId, form.employmentStatus)
+      }
       ElMessage.success('用户新增成功')
     }
 
@@ -428,5 +483,24 @@ function getRoleTagType(userRole) {
   }
 
   return tagTypeMap[userRole] || 'info'
+}
+
+function appendEmploymentStatus(user, statusMap = {}) {
+  return {
+    ...user,
+    employmentStatus: statusMap[user.userId] || EMPLOYMENT_ACTIVE,
+  }
+}
+
+async function handleEmploymentStatusChange(row) {
+  const nextStatus = row.employmentStatus || EMPLOYMENT_ACTIVE
+  const previousStatus = nextStatus === EMPLOYMENT_ACTIVE ? EMPLOYMENT_INACTIVE : EMPLOYMENT_ACTIVE
+
+  try {
+    await updateUserEmploymentStatusApi(row.userId, nextStatus)
+    ElMessage.success(`已将「${row.userName}」标记为${nextStatus === EMPLOYMENT_ACTIVE ? '在职' : '离职'}`)
+  } catch {
+    row.employmentStatus = previousStatus
+  }
 }
 </script>

@@ -4,6 +4,7 @@ import com.worktime.common.AuthContext;
 import com.worktime.common.CurrentUser;
 import com.worktime.common.TokenPayload;
 import com.worktime.common.TokenUtil;
+import com.worktime.service.UserEmploymentStatusService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
@@ -19,8 +20,12 @@ public class AuthInterceptor implements HandlerInterceptor {
     // token 工具对象。
     private final TokenUtil tokenUtil;
 
-    public AuthInterceptor(TokenUtil tokenUtil) {
+    // 用户在职状态业务对象，用来让离职用户的旧 token 立即失效。
+    private final UserEmploymentStatusService userEmploymentStatusService;
+
+    public AuthInterceptor(TokenUtil tokenUtil, UserEmploymentStatusService userEmploymentStatusService) {
         this.tokenUtil = tokenUtil;
+        this.userEmploymentStatusService = userEmploymentStatusService;
     }
 
     // 请求进入 Controller 前执行。
@@ -40,6 +45,11 @@ public class AuthInterceptor implements HandlerInterceptor {
         TokenPayload tokenPayload = tokenUtil.parseToken(token);
         if (tokenPayload == null) {
             writeUnauthorized(response, "登录状态已失效，请重新登录");
+            return false;
+        }
+
+        if (userEmploymentStatusService.isInactive(tokenPayload.getUserId())) {
+            writeUnauthorized(response, "该账号已离职，禁止登录系统");
             return false;
         }
 
