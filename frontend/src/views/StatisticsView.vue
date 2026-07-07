@@ -52,11 +52,37 @@
             end-placeholder="结束日期"
             range-separator="至"
             :shortcuts="dateShortcuts"
+            @change="handleDateRangeChange"
           />
+        </el-form-item>
+
+        <el-form-item v-if="showExportControls" label="导出周期">
+          <el-select
+            v-model="queryForm.exportPeriod"
+            class="statistics-period-select"
+            placeholder="选择周期"
+            @change="handleExportPeriodChange"
+          >
+            <el-option
+              v-for="period in exportPeriodOptions"
+              :key="period.value"
+              :label="period.label"
+              :value="period.value"
+            />
+          </el-select>
         </el-form-item>
 
         <el-button type="primary" :loading="loading" @click="loadStatistics">
           查询
+        </el-button>
+
+        <el-button
+          v-if="showExportControls"
+          :icon="Download"
+          :loading="exportLoading"
+          @click="handleExportExcel"
+        >
+          导出Excel
         </el-button>
       </el-form>
     </div>
@@ -151,7 +177,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { Download, Refresh } from '@element-plus/icons-vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart, PieChart } from 'echarts/charts'
@@ -173,6 +199,7 @@ use([CanvasRenderer, LineChart, PieChart, GridComponent, LegendComponent, Toolti
 
 const authStore = useAuthStore()
 const loading = ref(false)
+const exportLoading = ref(false)
 const statisticsResult = ref(null)
 const departmentOptions = ref([])
 const userOptions = ref([])
@@ -183,6 +210,7 @@ const queryForm = reactive({
   adminScopeType: 'company',
   deptId: null,
   userId: null,
+  exportPeriod: 'month',
   dateRange: [getMonthStartDate(), getTodayDate()],
 })
 const pagination = reactive({
@@ -209,6 +237,13 @@ const dateShortcuts = [
   },
 ]
 
+const exportPeriodOptions = [
+  { label: '本周', value: 'week' },
+  { label: '本月', value: 'month' },
+  { label: '本季度', value: 'quarter' },
+  { label: '本年', value: 'year' },
+]
+
 const detailList = computed(() => statisticsResult.value?.details || [])
 const filteredDetailList = computed(() => {
   const keyword = normalizeSearchText(detailKeyword.value)
@@ -232,6 +267,9 @@ const showDepartmentSelector = computed(() =>
 )
 const showUserSelector = computed(() =>
   authStore.userRole === ROLE_ADMIN && queryForm.adminScopeType === 'personal',
+)
+const showExportControls = computed(() =>
+  authStore.userRole === ROLE_ADMIN || authStore.userRole === ROLE_MANAGER,
 )
 
 const pageTitle = computed(() => {
@@ -449,16 +487,53 @@ function getMonthStartDate() {
   return formatDate(new Date(today.getFullYear(), today.getMonth(), 1))
 }
 
+function getMonthEndDate() {
+  const today = new Date()
+  return formatDate(new Date(today.getFullYear(), today.getMonth() + 1, 0))
+}
+
 function getWeekStartDate() {
   const today = new Date()
   const day = today.getDay() || 7
   return new Date(today.getFullYear(), today.getMonth(), today.getDate() - day + 1)
 }
 
+function getWeekEndDate() {
+  const weekStartDate = getWeekStartDate()
+  return new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate() + 6)
+}
+
 function getQuarterStartDate() {
   const today = new Date()
   const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3
   return new Date(today.getFullYear(), quarterStartMonth, 1)
+}
+
+function getQuarterEndDate() {
+  const today = new Date()
+  const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3
+  return formatDate(new Date(today.getFullYear(), quarterStartMonth + 3, 0))
+}
+
+function getYearStartDate() {
+  const today = new Date()
+  return formatDate(new Date(today.getFullYear(), 0, 1))
+}
+
+function getYearEndDate() {
+  const today = new Date()
+  return formatDate(new Date(today.getFullYear(), 11, 31))
+}
+
+function getPeriodDateRange(period) {
+  const periodMap = {
+    week: [formatDate(getWeekStartDate()), formatDate(getWeekEndDate())],
+    month: [getMonthStartDate(), getMonthEndDate()],
+    quarter: [formatDate(getQuarterStartDate()), getQuarterEndDate()],
+    year: [getYearStartDate(), getYearEndDate()],
+  }
+
+  return periodMap[period] || periodMap.month
 }
 
 function formatDate(date) {
@@ -477,6 +552,122 @@ function handleAdminScopeChange() {
   queryForm.deptId = null
   queryForm.userId = null
   resetCurrentPage()
+}
+
+function handleDateRangeChange() {
+  statisticsResult.value = null
+  resetCurrentPage()
+}
+
+function handleExportPeriodChange(period) {
+  queryForm.dateRange = getPeriodDateRange(period)
+  statisticsResult.value = null
+  resetCurrentPage()
+}
+
+function handleExportExcel() {
+  if (!statisticsResult.value) {
+    ElMessage.warning('请先查询统计结果，再导出Excel')
+    return
+  }
+
+  if (filteredDetailList.value.length === 0) {
+    ElMessage.warning('当前没有可导出的工时明细')
+    return
+  }
+
+  exportLoading.value = true
+
+  try {
+    exportStatisticsDetails()
+    ElMessage.success('Excel文件已生成')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+function exportStatisticsDetails() {
+  const [startDate, endDate] = queryForm.dateRange || []
+  const fileName = buildExportFileName(startDate, endDate)
+  const summaryRows = [
+    ['统计范围', statisticsResult.value?.scopeName || '-'],
+    ['日期范围', `${startDate || '-'} 至 ${endDate || '-'}`],
+    ['审批通过总工时', `${formatHours(statisticsResult.value?.totalHours)} 小时`],
+    ['明细数量', `${filteredDetailList.value.length} 条`],
+  ]
+  const detailHeaders = ['工时编号', '员工姓名', '所属部门', '项目名称', '工作日期', '工时数', '工作描述']
+  const detailRows = filteredDetailList.value.map((item) => [
+    item.workId,
+    item.userName,
+    item.deptName,
+    item.projectName,
+    item.workDate,
+    formatHours(item.workHours),
+    item.workDesc,
+  ])
+  const excelHtml = buildExcelHtml(summaryRows, detailHeaders, detailRows)
+  const blob = new Blob([excelHtml], {
+    type: 'application/vnd.ms-excel;charset=utf-8',
+  })
+  const downloadUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = downloadUrl
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(downloadUrl)
+}
+
+function buildExcelHtml(summaryRows, detailHeaders, detailRows) {
+  const summaryTableRows = summaryRows
+    .map((row) => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`)
+    .join('')
+  const headerCells = detailHeaders
+    .map((header) => `<th>${escapeHtml(header)}</th>`)
+    .join('')
+  const detailTableRows = detailRows
+    .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
+    .join('')
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    table { border-collapse: collapse; font-family: Arial, "Microsoft YaHei", sans-serif; font-size: 12px; }
+    th, td { border: 1px solid #d9d9d9; padding: 6px 10px; text-align: left; }
+    th { background: #f3f4f6; font-weight: 700; }
+    .summary { margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <table class="summary">${summaryTableRows}</table>
+  <table>
+    <thead><tr>${headerCells}</tr></thead>
+    <tbody>${detailTableRows}</tbody>
+  </table>
+</body>
+</html>`
+}
+
+function buildExportFileName(startDate, endDate) {
+  const scopeName = sanitizeFileName(statisticsResult.value?.scopeName || '工时统计')
+  return `${scopeName}_工时明细_${startDate || '开始日期'}_${endDate || '结束日期'}.xls`
+}
+
+function sanitizeFileName(value) {
+  return String(value || '').replace(/[\\/:*?"<>|]/g, '_')
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }
 
 function resetCurrentPage() {

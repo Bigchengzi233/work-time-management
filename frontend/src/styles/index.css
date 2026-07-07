@@ -1097,6 +1097,11 @@ input {
   min-width: 220px;
 }
 
+.management-page .statistics-period-select {
+  width: 150px;
+  min-width: 150px;
+}
+
 .management-page .statistics-scope-select .el-select__wrapper {
   min-height: 34px;
 }
