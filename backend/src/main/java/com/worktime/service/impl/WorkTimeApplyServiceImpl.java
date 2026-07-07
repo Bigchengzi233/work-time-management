@@ -16,6 +16,7 @@ import com.worktime.service.WorkTimeApplyService;
 import com.worktime.vo.WorkTimeApprovalRuleVO;
 import com.worktime.vo.WorkTimeApplyRowVO;
 import com.worktime.vo.WorkTimeApplyVO;
+import com.worktime.vo.WorkTimeExceptionVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -120,6 +121,21 @@ public class WorkTimeApplyServiceImpl implements WorkTimeApplyService {
         return workTimeApplyMapper.selectPendingByManagerId(managerId).stream()
                 .map(WorkTimeApplyVO::fromRow)
                 .toList();
+    }
+
+    // 根据部门经理编号查询昨天未填报工时的本部门员工。
+    @Override
+    public List<WorkTimeExceptionVO> listYesterdayMissingWorkTimesByManagerId(Integer managerId) {
+        CurrentUser currentUser = AuthUtil.requireManager();
+        if (!currentUser.getUserId().equals(managerId)) {
+            throw new BusinessException(403, "只能查看本人部门的工时异常");
+        }
+
+        if (workTimeApplyMapper.countManagerById(managerId) == 0) {
+            throw new BusinessException(400, "当前用户不是部门经理");
+        }
+
+        return workTimeApplyMapper.selectMissingByManagerAndDate(managerId, LocalDate.now().minusDays(1));
     }
 
     // 新建工时草稿，并写入新建日志。

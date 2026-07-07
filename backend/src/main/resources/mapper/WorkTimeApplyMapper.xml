@@ -107,6 +107,41 @@
         ORDER BY w.work_date DESC, w.work_id DESC
     </select>
 
+    <!-- 根据部门经理编号和日期查询本部门已授权但未填报工时的员工。 -->
+    <select id="selectMissingByManagerAndDate" resultType="com.worktime.vo.WorkTimeExceptionVO">
+        SELECT
+            u.user_id AS userId,
+            u.user_name AS userName,
+            u.dept_id AS deptId,
+            d.dept_name AS deptName,
+            #{workDate} AS workDate,
+            COUNT(DISTINCT up.project_id) AS activeProjectCount
+        FROM `user` manager_user
+        INNER JOIN `user` u
+            ON u.dept_id = manager_user.dept_id
+           AND u.user_role = '2'
+        INNER JOIN department d ON u.dept_id = d.dept_id
+        INNER JOIN user_project up
+            ON up.user_id = u.user_id
+           AND up.auth_status = 1
+        INNER JOIN project p
+            ON p.project_id = up.project_id
+           AND p.project_status = 1
+        LEFT JOIN work_time_apply w
+            ON w.user_id = u.user_id
+           AND w.work_date = #{workDate}
+           AND w.is_deleted = 0
+        WHERE manager_user.user_id = #{managerId}
+          AND manager_user.user_role = '1'
+        GROUP BY
+            u.user_id,
+            u.user_name,
+            u.dept_id,
+            d.dept_name
+        HAVING COUNT(w.work_id) = 0
+        ORDER BY u.user_id ASC
+    </select>
+
     <!-- 检查用户是否存在。 -->
     <select id="countUserById" resultType="int">
         SELECT COUNT(1)

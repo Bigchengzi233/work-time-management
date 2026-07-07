@@ -7,6 +7,7 @@ import com.worktime.dto.WorkTimeRejectDTO;
 import com.worktime.dto.WorkTimeUpdateDTO;
 import com.worktime.service.WorkTimeApplyService;
 import com.worktime.vo.WorkTimeApplyVO;
+import com.worktime.vo.WorkTimeExceptionVO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,6 +55,12 @@ public class WorkTimeApplyController {
     @GetMapping("/pending/managers/{managerId}")
     public ApiResponse<List<WorkTimeApplyVO>> listPendingWorkTimesByManagerId(@PathVariable Integer managerId) {
         return ApiResponse.success(workTimeApplyService.listPendingWorkTimesByManagerId(managerId));
+    }
+
+    // 根据部门经理编号查询昨天未填报工时的本部门员工，对应 GET /api/work-times/exceptions/managers/{managerId}。
+    @GetMapping("/exceptions/managers/{managerId}")
+    public ApiResponse<List<WorkTimeExceptionVO>> listYesterdayMissingWorkTimesByManagerId(@PathVariable Integer managerId) {
+        return ApiResponse.success(workTimeApplyService.listYesterdayMissingWorkTimesByManagerId(managerId));
     }
 
     // 新建工时草稿，对应 POST /api/work-times。

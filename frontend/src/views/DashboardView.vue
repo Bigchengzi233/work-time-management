@@ -142,6 +142,7 @@ const dashboardData = ref({
   departments: [],
   workTimes: [],
   pendingWorkTimes: [],
+  missingWorkTimes: [],
   userProjects: [],
   statistics: null,
   logs: [],
@@ -231,6 +232,7 @@ const summaryCards = computed(() => {
   if (authStore.userRole === ROLE_MANAGER) {
     return [
       { label: '待审批', value: `${pendingCount.value} 条`, icon: DocumentChecked, iconClass: 'metric-orange' },
+      { label: '工时异常', value: `${notificationStore.unreadMissingWorkTimeCount} 人`, icon: Clock, iconClass: 'metric-purple' },
       { label: '部门本月工时', value: totalHoursText.value, icon: Timer, iconClass: 'metric-blue' },
       { label: '当前部门', value: authStore.user?.deptName || '暂无部门', icon: OfficeBuilding, iconClass: 'metric-green' },
     ]
@@ -262,13 +264,30 @@ const todoGroups = computed(() => {
       notification: item,
     }))
 
+    const missingWorkTimeItems = notificationStore.unreadMissingWorkTimeNotifications.map((item) => ({
+      key: `missing-${item.userId}-${item.workDate}`,
+      type: 'missing-work-time',
+      title: `${item.userName} 未填报工时`,
+      desc: `${item.workDate} / ${item.deptName || authStore.user?.deptName || '暂无部门'}`,
+      notification: item,
+    }))
+
     return [
       { title: '待审批工时', items: pendingItems },
+      { title: '工时异常提醒', items: missingWorkTimeItems },
       { title: '待授权项目', items: projectItems },
     ].filter((group) => group.items.length > 0)
   }
 
   if (authStore.userRole === ROLE_EMPLOYEE) {
+    const reminderItems = notificationStore.unreadEmployeeReminderNotifications.map((item) => ({
+      key: `reminder-${item.reminderId}`,
+      type: 'employee-reminder',
+      title: '工时补填提醒',
+      desc: `${item.workDate} / ${item.managerName}`,
+      notification: item,
+    }))
+
     const authorizationItems = notificationStore.unreadAuthorizationNotifications.map((item) => ({
       key: `authorization-${item.authId}`,
       type: 'authorization',
@@ -289,6 +308,7 @@ const todoGroups = computed(() => {
       }))
 
     return [
+      { title: '工时补填提醒', items: reminderItems },
       { title: '项目授权消息', items: authorizationItems },
       { title: '被驳回工时', items: rejectedItems },
     ].filter((group) => group.items.length > 0)
@@ -329,6 +349,7 @@ async function loadDashboardData() {
         logs,
         workTimes: [],
         pendingWorkTimes: [],
+        missingWorkTimes: [],
         userProjects: [],
       }
       return
@@ -340,11 +361,13 @@ async function loadDashboardData() {
         getDepartmentStatisticsApi({ managerId: authStore.user.userId, startDate, endDate }),
         listWorkTimeLogsApi(),
         notificationStore.loadProjectNotifications(authStore.user.userId, authStore.userRole, authStore.user.deptId),
+        notificationStore.loadMissingWorkTimeNotifications(authStore.user.userId, authStore.userRole),
       ])
 
       dashboardData.value = {
         ...dashboardData.value,
         pendingWorkTimes,
+        missingWorkTimes: notificationStore.unreadMissingWorkTimeNotifications,
         statistics,
         logs,
         workTimes: [],
@@ -358,6 +381,7 @@ async function loadDashboardData() {
       getPersonalStatisticsApi({ userId: authStore.user.userId, startDate, endDate }),
       listWorkTimeLogsApi(),
       notificationStore.loadAuthorizationNotifications(authStore.user.userId, authStore.userRole),
+      notificationStore.loadEmployeeReminderNotifications(authStore.user.userId, authStore.userRole),
     ])
 
     dashboardData.value = {
@@ -367,6 +391,7 @@ async function loadDashboardData() {
       statistics,
       logs,
       pendingWorkTimes: [],
+      missingWorkTimes: [],
     }
   } finally {
     loading.value = false
@@ -401,6 +426,16 @@ function handleTodoItemClick(item) {
 
   if (item.type === 'project') {
     notificationStore.openProjectDetail(item.notification)
+    return
+  }
+
+  if (item.type === 'missing-work-time') {
+    notificationStore.openMissingWorkTimeDetail(item.notification)
+    return
+  }
+
+  if (item.type === 'employee-reminder') {
+    notificationStore.openEmployeeReminderDetail(item.notification)
     return
   }
 

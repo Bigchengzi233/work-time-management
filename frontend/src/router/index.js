@@ -8,6 +8,7 @@ import BaseDataView from '../views/BaseDataView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import UserProjectManageView from '../views/UserProjectManageView.vue'
 import WorkTimeManageView from '../views/WorkTimeManageView.vue'
+import WorkTimeCalendarView from '../views/WorkTimeCalendarView.vue'
 import WorkTimeLogManageView from '../views/WorkTimeLogManageView.vue'
 import StatisticsView from '../views/StatisticsView.vue'
 
@@ -58,6 +59,15 @@ const routes = [
         meta: {
           title: '工时管理',
           roles: [ROLE_MANAGER, ROLE_EMPLOYEE],
+        },
+      },
+      {
+        path: 'work-calendar',
+        name: 'work-calendar',
+        component: WorkTimeCalendarView,
+        meta: {
+          title: '工时日历',
+          roles: [ROLE_EMPLOYEE],
         },
       },
       {

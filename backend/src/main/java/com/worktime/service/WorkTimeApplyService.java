@@ -5,6 +5,7 @@ import com.worktime.dto.WorkTimeApproveDTO;
 import com.worktime.dto.WorkTimeRejectDTO;
 import com.worktime.dto.WorkTimeUpdateDTO;
 import com.worktime.vo.WorkTimeApplyVO;
+import com.worktime.vo.WorkTimeExceptionVO;
 
 import java.util.List;
 
@@ -22,6 +23,9 @@ public interface WorkTimeApplyService {
 
     // 根据部门经理编号查询其本部门待审批工时。
     List<WorkTimeApplyVO> listPendingWorkTimesByManagerId(Integer managerId);
+
+    // 根据部门经理编号查询昨天未填报工时的本部门员工。
+    List<WorkTimeExceptionVO> listYesterdayMissingWorkTimesByManagerId(Integer managerId);
 
     // 新建工时草稿。
     WorkTimeApplyVO createWorkTime(WorkTimeCreateDTO createDTO);

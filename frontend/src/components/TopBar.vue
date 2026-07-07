@@ -111,6 +111,81 @@
       </el-button>
     </template>
   </el-dialog>
+
+  <el-dialog
+    v-model="notificationStore.missingWorkTimeDetailVisible"
+    title="工时异常提醒"
+    width="460px"
+    destroy-on-close
+  >
+    <div v-if="notificationStore.selectedMissingWorkTime" class="notification-detail">
+      <span class="notification-detail-icon">异</span>
+      <div>
+        <h3>员工昨日未填报工时</h3>
+        <p>
+          <strong>{{ notificationStore.selectedMissingWorkTime.userName }}</strong>
+          在 {{ notificationStore.selectedMissingWorkTime.workDate }} 没有填写工时，可提醒员工尽快补填。
+        </p>
+      </div>
+      <dl>
+        <div>
+          <dt>所属部门</dt>
+          <dd>{{ notificationStore.selectedMissingWorkTime.deptName || authStore.user?.deptName || '暂无部门' }}</dd>
+        </div>
+        <div>
+          <dt>可填项目</dt>
+          <dd>{{ notificationStore.selectedMissingWorkTime.activeProjectCount || 0 }} 个</dd>
+        </div>
+      </dl>
+    </div>
+
+    <template #footer>
+      <el-button @click="notificationStore.missingWorkTimeDetailVisible = false">稍后处理</el-button>
+      <el-button
+        type="primary"
+        :disabled="hasSentReminder(notificationStore.selectedMissingWorkTime)"
+        @click="sendSelectedMissingWorkTimeReminder"
+      >
+        {{ hasSentReminder(notificationStore.selectedMissingWorkTime) ? '已提醒' : '提醒员工' }}
+      </el-button>
+    </template>
+  </el-dialog>
+
+  <el-dialog
+    v-model="notificationStore.employeeReminderDetailVisible"
+    title="工时补填提醒"
+    width="460px"
+    destroy-on-close
+  >
+    <div v-if="notificationStore.selectedEmployeeReminder" class="notification-detail">
+      <span class="notification-detail-icon">提</span>
+      <div>
+        <h3>请补填昨日工时</h3>
+        <p>
+          {{ notificationStore.selectedEmployeeReminder.managerName }} 提醒你：
+          {{ notificationStore.selectedEmployeeReminder.message }}
+        </p>
+      </div>
+      <dl>
+        <div>
+          <dt>异常日期</dt>
+          <dd>{{ notificationStore.selectedEmployeeReminder.workDate }}</dd>
+        </div>
+        <div>
+          <dt>提醒时间</dt>
+          <dd>{{ formatDateTime(notificationStore.selectedEmployeeReminder.createdAt) }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <template #footer>
+      <el-button @click="notificationStore.employeeReminderDetailVisible = false">稍后处理</el-button>
+      <el-button @click="goWorkTimes">去补填工时</el-button>
+      <el-button type="primary" @click="notificationStore.markSelectedEmployeeReminderRead">
+        已阅
+      </el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -144,11 +219,15 @@ const showNotificationButton = computed(() =>
 
 const notificationCount = computed(() => {
   if (authStore.userRole === ROLE_MANAGER) {
-    return managerPendingCount.value + notificationStore.unreadProjectCount
+    return managerPendingCount.value
+      + notificationStore.unreadProjectCount
+      + notificationStore.unreadMissingWorkTimeCount
   }
 
   if (authStore.userRole === ROLE_EMPLOYEE) {
-    return employeeRejectedCount.value + notificationStore.unreadAuthorizationCount
+    return employeeRejectedCount.value
+      + notificationStore.unreadAuthorizationCount
+      + notificationStore.unreadEmployeeReminderCount
   }
 
   return 0
@@ -173,40 +252,44 @@ const breadcrumbItems = computed(() => {
 const notificationText = computed(() => {
   if (authStore.userRole === ROLE_MANAGER) {
     const projectCount = notificationStore.unreadProjectCount
+    const exceptionCount = notificationStore.unreadMissingWorkTimeCount
     const pendingCount = managerPendingCount.value
+    const textParts = []
 
-    if (projectCount > 0 && pendingCount > 0) {
-      return `${pendingCount} 条工时待审批，${projectCount} 个项目待授权`
+    if (exceptionCount > 0) {
+      textParts.push(`${exceptionCount} 名员工工时异常`)
     }
 
     if (projectCount > 0) {
-      return `${projectCount} 个项目待授权`
+      textParts.push(`${projectCount} 个项目待授权`)
     }
 
     if (pendingCount > 0) {
-      return `${pendingCount} 条工时待审批`
+      textParts.push(`${pendingCount} 条工时待审批`)
     }
 
-    return '暂无通知'
+    return textParts.length > 0 ? textParts.join('，') : '暂无通知'
   }
 
   if (authStore.userRole === ROLE_EMPLOYEE) {
     const authCount = notificationStore.unreadAuthorizationCount
+    const reminderCount = notificationStore.unreadEmployeeReminderCount
     const rejectedCount = employeeRejectedCount.value
+    const textParts = []
 
-    if (authCount > 0 && rejectedCount > 0) {
-      return `${authCount} 条项目授权消息，${rejectedCount} 条工时被驳回`
+    if (reminderCount > 0) {
+      textParts.push(`${reminderCount} 条工时补填提醒`)
     }
 
     if (authCount > 0) {
-      return `${authCount} 条项目授权消息`
+      textParts.push(`${authCount} 条项目授权消息`)
     }
 
     if (rejectedCount > 0) {
-      return `${rejectedCount} 条工时被驳回`
+      textParts.push(`${rejectedCount} 条工时被驳回`)
     }
 
-    return '暂无通知'
+    return textParts.length > 0 ? textParts.join('，') : '暂无通知'
   }
 
   return '暂无通知'
@@ -234,15 +317,17 @@ async function loadNotificationCount() {
   if (!authStore.user?.userId) {
     managerPendingCount.value = 0
     employeeRejectedCount.value = 0
-    notificationStore.clearAuthorizationNotifications()
+    notificationStore.clearAllNotifications()
     return
   }
 
   if (authStore.userRole === ROLE_MANAGER) {
     notificationStore.clearAuthorizationNotifications()
+    notificationStore.clearEmployeeReminderNotifications()
     const [pendingList] = await Promise.all([
       listPendingWorkTimesByManagerIdApi(authStore.user.userId),
       notificationStore.loadProjectNotifications(authStore.user.userId, authStore.userRole, authStore.user.deptId),
+      notificationStore.loadMissingWorkTimeNotifications(authStore.user.userId, authStore.userRole),
     ])
     managerPendingCount.value = pendingList.length
     employeeRejectedCount.value = 0
@@ -251,9 +336,11 @@ async function loadNotificationCount() {
 
   if (authStore.userRole === ROLE_EMPLOYEE) {
     notificationStore.clearProjectNotifications()
+    notificationStore.clearMissingWorkTimeNotifications()
     const [workTimeList] = await Promise.all([
       listWorkTimesByUserIdApi(authStore.user.userId),
       notificationStore.loadAuthorizationNotifications(authStore.user.userId, authStore.userRole),
+      notificationStore.loadEmployeeReminderNotifications(authStore.user.userId, authStore.userRole),
     ])
     managerPendingCount.value = 0
     employeeRejectedCount.value = workTimeList.filter((item) => item.status === 3 && item.isDeleted === 0).length
@@ -262,13 +349,18 @@ async function loadNotificationCount() {
 
   managerPendingCount.value = 0
   employeeRejectedCount.value = 0
-  notificationStore.clearAuthorizationNotifications()
-  notificationStore.clearProjectNotifications()
+  notificationStore.clearAllNotifications()
 }
 
 function handleNotificationClick() {
   if (authStore.userRole === ROLE_MANAGER) {
+    const firstMissingWorkTime = notificationStore.unreadMissingWorkTimeNotifications[0]
     const firstUnreadProject = notificationStore.unreadProjectNotifications[0]
+
+    if (firstMissingWorkTime) {
+      notificationStore.openMissingWorkTimeDetail(firstMissingWorkTime)
+      return
+    }
 
     if (firstUnreadProject) {
       notificationStore.openProjectDetail(firstUnreadProject)
@@ -280,7 +372,13 @@ function handleNotificationClick() {
   }
 
   if (authStore.userRole === ROLE_EMPLOYEE) {
+    const firstUnreadReminder = notificationStore.unreadEmployeeReminderNotifications[0]
     const firstUnreadAuthorization = notificationStore.unreadAuthorizationNotifications[0]
+
+    if (firstUnreadReminder) {
+      notificationStore.openEmployeeReminderDetail(firstUnreadReminder)
+      return
+    }
 
     if (firstUnreadAuthorization) {
       notificationStore.openAuthorizationDetail(firstUnreadAuthorization)
@@ -293,6 +391,7 @@ function handleNotificationClick() {
 
 function goWorkTimes() {
   notificationStore.authorizationDetailVisible = false
+  notificationStore.employeeReminderDetailVisible = false
   router.push('/work-times')
 }
 
@@ -307,6 +406,24 @@ function formatDateTime(value) {
   }
 
   return String(value).replace('T', ' ').slice(0, 16)
+}
+
+function hasSentReminder(notification) {
+  return notificationStore.hasSentMissingWorkTimeReminder(notification, authStore.user?.userId)
+}
+
+function sendSelectedMissingWorkTimeReminder() {
+  const sent = notificationStore.sendMissingWorkTimeReminder(
+    notificationStore.selectedMissingWorkTime,
+    authStore.user,
+  )
+
+  if (sent) {
+    ElMessage.success('已发送补填提醒')
+    return
+  }
+
+  ElMessage.info('该员工已收到本次补填提醒')
 }
 
 function handleUserCommand(command) {

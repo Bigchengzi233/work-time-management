@@ -3,6 +3,7 @@ package com.worktime.mapper;
 import com.worktime.entity.WorkTimeApply;
 import com.worktime.vo.WorkTimeApprovalRuleVO;
 import com.worktime.vo.WorkTimeApplyRowVO;
+import com.worktime.vo.WorkTimeExceptionVO;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDate;
@@ -28,6 +29,11 @@ public interface WorkTimeApplyMapper {
 
     // 根据部门经理编号查询其本部门待审批工时。
     List<WorkTimeApplyRowVO> selectPendingByManagerId(Integer managerId);
+
+    // 根据部门经理编号和日期查询本部门未填报工时的员工。
+    List<WorkTimeExceptionVO> selectMissingByManagerAndDate(
+            @Param("managerId") Integer managerId,
+            @Param("workDate") LocalDate workDate);
 
     // 检查用户是否存在。
     int countUserById(Integer userId);

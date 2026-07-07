@@ -10,6 +10,11 @@ export function listPendingWorkTimesByManagerIdApi(managerId) {
   return request.get(`/work-times/pending/managers/${managerId}`)
 }
 
+// 查询经理本部门昨天未填报工时的员工：对应后端 GET /api/work-times/exceptions/managers/{managerId}。
+export function listMissingWorkTimesByManagerIdApi(managerId) {
+  return request.get(`/work-times/exceptions/managers/${managerId}`)
+}
+
 // 新增工时草稿：对应后端 POST /api/work-times。
 export function createWorkTimeApi(data) {
   return request.post('/work-times', data)
