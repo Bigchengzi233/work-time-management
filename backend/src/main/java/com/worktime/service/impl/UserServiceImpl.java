@@ -1,5 +1,6 @@
 package com.worktime.service.impl;
 
+import com.worktime.common.RoleConstants;
 import com.worktime.dto.UserCreateDTO;
 import com.worktime.dto.UserUpdateDTO;
 import com.worktime.entity.User;
@@ -54,6 +55,10 @@ public class UserServiceImpl implements UserService {
         String phone = createDTO.getPhone().trim();
         String email = normalizeEmail(createDTO.getEmail());
 
+        if (RoleConstants.ADMIN.equals(createDTO.getUserRole())) {
+            throw new BusinessException(400, "系统只能保留一个管理员，不能新增管理员账号");
+        }
+
         if (userMapper.countByPhone(phone) > 0) {
             throw new BusinessException(400, "手机号已存在");
         }
@@ -85,6 +90,16 @@ public class UserServiceImpl implements UserService {
         String userName = updateDTO.getUserName().trim();
         String phone = updateDTO.getPhone().trim();
         String email = normalizeEmail(updateDTO.getEmail());
+
+        if (!RoleConstants.ADMIN.equals(oldUser.getUserRole())
+                && RoleConstants.ADMIN.equals(updateDTO.getUserRole())) {
+            throw new BusinessException(400, "系统只能保留一个管理员，不能把用户修改为管理员");
+        }
+
+        if (RoleConstants.ADMIN.equals(oldUser.getUserRole())
+                && !RoleConstants.ADMIN.equals(updateDTO.getUserRole())) {
+            throw new BusinessException(400, "系统必须保留唯一管理员，不能修改管理员角色");
+        }
 
         if (userMapper.countByPhoneExcludeId(phone, userId) > 0) {
             throw new BusinessException(400, "手机号已存在");
