@@ -9,12 +9,16 @@ import com.worktime.service.ProjectService;
 import com.worktime.vo.ProjectRowVO;
 import com.worktime.vo.ProjectVO;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 // 项目业务实现类：处理项目管理的业务规则。
 @Service
 public class ProjectServiceImpl implements ProjectService {
+
+    // 项目状态：0 表示禁用。
+    private static final int PROJECT_STATUS_DISABLED = 0;
 
     // 项目数据访问对象。
     private final ProjectMapper projectMapper;
@@ -60,6 +64,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     // 修改项目。
     @Override
+    @Transactional
     public ProjectVO updateProject(Integer projectId, ProjectUpdateDTO updateDTO) {
         ProjectRowVO oldProject = projectMapper.selectById(projectId);
         if (oldProject == null) {
@@ -78,6 +83,11 @@ public class ProjectServiceImpl implements ProjectService {
         project.setDeptId(updateDTO.getDeptId());
 
         projectMapper.updateById(project);
+
+        if (updateDTO.getProjectStatus() == PROJECT_STATUS_DISABLED) {
+            projectMapper.cancelActiveAuthorizationsByProjectId(projectId);
+        }
+
         return getProjectById(projectId);
     }
 

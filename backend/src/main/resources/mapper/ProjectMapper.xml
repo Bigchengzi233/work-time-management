@@ -69,6 +69,14 @@
         WHERE project_id = #{projectId}
     </update>
 
+    <!-- 项目被禁用后，该项目下所有有效授权也要自动取消。 -->
+    <update id="cancelActiveAuthorizationsByProjectId">
+        UPDATE user_project
+        SET auth_status = 0
+        WHERE project_id = #{projectId}
+          AND auth_status = 1
+    </update>
+
     <!-- 统计项目是否存在员工授权记录。 -->
     <select id="countUserProjectsByProjectId" resultType="int">
         SELECT COUNT(1)

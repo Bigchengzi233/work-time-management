@@ -23,6 +23,9 @@ public interface ProjectMapper {
     // 根据项目编号修改项目。
     int updateById(Project project);
 
+    // 项目被禁用时，批量把该项目下的有效授权改为取消授权。
+    int cancelActiveAuthorizationsByProjectId(Integer projectId);
+
     // 统计项目是否存在员工授权记录。
     int countUserProjectsByProjectId(Integer projectId);
 
